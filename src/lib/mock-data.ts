@@ -6,7 +6,7 @@ export interface Threat {
   sourceIP: string;
   targetSystem: string;
   timestamp: Date;
-  status: "Investigating" | "Contained" | "Blocked" | "Active";
+  status: "Investigating" | "Contained" | "Blocked" | "Active" | "Mitigating" | "Mitigated";
   description: string;
   details: {
     attackVector: string;
@@ -19,6 +19,7 @@ export interface Threat {
   ai_analysis?: string | null;
   confidence_score?: number;
   anomaly_score?: number;
+  suggested_playbook?: any[]; // AI suggested action steps
 }
 
 export interface Playbook {

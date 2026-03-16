@@ -29,12 +29,27 @@ raw_X_test = scaler.inverse_transform(X_test)
 classes = le.classes_
 
 print(f"\n✅ Ready! Loaded {len(raw_X_test)} samples from CIC-IDS2017.")
-print("Starting continuous live traffic injection (1 event every 5 seconds)...")
+print("Finding non-benign traffic indices for higher threat density...")
+
+# Pre-calculate indices of malicious traffic so we can force them to appear more often
+malicious_indices = [i for i, label in enumerate(y_test) if classes[label].lower() != "benign"]
+benign_indices = [i for i, label in enumerate(y_test) if classes[label].lower() == "benign"]
+
+if not malicious_indices:
+    print("⚠️ WARNING: No malicious traffic found in the test set! Using all traffic.")
+    malicious_indices = list(range(len(raw_X_test)))
+
+print(f"Found {len(malicious_indices)} malicious samples and {len(benign_indices)} benign samples.")
+print("Starting continuous live traffic injection (bias towards 80% threats)...")
 print("Press Ctrl+C to stop.\n")
 
 def simulate_event():
-    # Pick a random sample from the test set
-    idx = random.randint(0, len(raw_X_test) - 1)
+    # 80% chance to pick a malicious sample, 20% chance for benign (if benign exists)
+    if benign_indices and random.random() > 0.8:
+        idx = random.choice(benign_indices)
+    else:
+        idx = random.choice(malicious_indices)
+        
     sample_raw = raw_X_test[idx]
     actual_label = classes[y_test[idx]]
     
@@ -66,7 +81,7 @@ def simulate_event():
             severity = result['severity']
             
             # Print the ML engine's decision
-            if threat_type == "benign":
+            if threat_type.lower() == "benign":
                 print(f"🟢 ML Prediction : {threat_type.upper()} (Allowed)")
             else:
                 print(f"🔴 ML Prediction : {threat_type.upper()} | Severity: {severity}")
@@ -79,7 +94,7 @@ if __name__ == "__main__":
     try:
         while True:
             simulate_event()
-            # Randomize the delay to make it feel more organic (between 4 to 8 seconds)
-            time.sleep(random.uniform(4, 8))
+            # Faster delays: between 1 and 3 seconds
+            time.sleep(random.uniform(1, 3))
     except KeyboardInterrupt:
         print("\n🛑 Simulation stopped.")

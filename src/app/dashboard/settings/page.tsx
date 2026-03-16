@@ -13,6 +13,9 @@ export default function SettingsPage() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testEmailSending, setTestEmailSending] = useState(false);
+  const [testSlackSending, setTestSlackSending] = useState(false);
+  const [testResult, setTestResult] = useState<{ type: "email" | "slack"; ok: boolean; message: string } | null>(null);
   
   const [settings, setSettings] = useState({
     name: "Loading...",
@@ -22,6 +25,7 @@ export default function SettingsPage() {
     criticalAlerts: true,
     weeklyReport: true,
     slackIntegration: false,
+    slackWebhookUrl: "",
     twoFactor: false, // Better Auth 2FA requires plugin
     sessionTimeout: "30",
   });
@@ -47,6 +51,11 @@ export default function SettingsPage() {
                setSettings(s => ({
                  ...s,
                  sessionTimeout: data.sessionTimeout?.toString() || "30",
+                 emailNotifications: data.emailNotifications !== false,
+                 criticalAlerts: data.criticalAlerts !== false,
+                 weeklyReport: data.weeklyReport !== false,
+                 slackIntegration: !!data.slackIntegration,
+                 slackWebhookUrl: data.slackWebhookUrl || "",
                }));
                if (data.darkMode !== undefined) {
                  setTheme(data.darkMode ? "dark" : "light");
@@ -65,6 +74,11 @@ export default function SettingsPage() {
     setHasChanges(true);
   };
 
+  const toggleSetting = (key: "emailNotifications" | "criticalAlerts" | "weeklyReport" | "slackIntegration") => {
+    setSettings((s) => ({ ...s, [key]: !s[key] }));
+    setHasChanges(true);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -73,7 +87,12 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionTimeout: settings.sessionTimeout,
-          darkMode: resolvedTheme === "dark"
+          darkMode: resolvedTheme === "dark",
+          emailNotifications: settings.emailNotifications,
+          criticalAlerts: settings.criticalAlerts,
+          weeklyReport: settings.weeklyReport,
+          slackIntegration: settings.slackIntegration,
+          slackWebhookUrl: settings.slackWebhookUrl,
         })
       });
       setSaved(true);
@@ -83,6 +102,40 @@ export default function SettingsPage() {
       console.error(err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const sendTestEmail = async () => {
+    setTestResult(null);
+    setTestEmailSending(true);
+    try {
+      const res = await fetch("/api/notifications/test-email", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || data?.reason || "Failed to send test email");
+      }
+      setTestResult({ type: "email", ok: true, message: "Test email sent successfully." });
+    } catch (err: any) {
+      setTestResult({ type: "email", ok: false, message: err?.message || "Failed to send test email." });
+    } finally {
+      setTestEmailSending(false);
+    }
+  };
+
+  const sendTestSlack = async () => {
+    setTestResult(null);
+    setTestSlackSending(true);
+    try {
+      const res = await fetch("/api/notifications/test-slack", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || data?.reason || "Failed to send test Slack message");
+      }
+      setTestResult({ type: "slack", ok: true, message: "Test Slack alert sent successfully." });
+    } catch (err: any) {
+      setTestResult({ type: "slack", ok: false, message: err?.message || "Failed to send test Slack message." });
+    } finally {
+      setTestSlackSending(false);
     }
   };
 
@@ -118,7 +171,10 @@ export default function SettingsPage() {
                 <input
                   type="text"
                   value={settings.name}
-                  onChange={(e) => setSettings((s) => ({ ...s, name: e.target.value }))}
+                  onChange={(e) => {
+                    setSettings((s) => ({ ...s, name: e.target.value }));
+                    setHasChanges(true);
+                  }}
                   className="flex-1 bg-transparent text-text outline-none text-sm"
                 />
               </div>
@@ -130,7 +186,10 @@ export default function SettingsPage() {
                 <input
                   type="email"
                   value={settings.email}
-                  onChange={(e) => setSettings((s) => ({ ...s, email: e.target.value }))}
+                  onChange={(e) => {
+                    setSettings((s) => ({ ...s, email: e.target.value }));
+                    setHasChanges(true);
+                  }}
                   className="flex-1 bg-transparent text-text outline-none text-sm"
                 />
               </div>
@@ -176,13 +235,55 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted">{item.desc}</p>
               </div>
               <button
-                onClick={() => setSettings((s) => ({ ...s, [item.key]: !s[item.key as keyof typeof s] }))}
+                onClick={() => toggleSetting(item.key as "emailNotifications" | "criticalAlerts" | "weeklyReport" | "slackIntegration")}
                 className={`w-12 h-6 rounded-full p-1 transition-colors ${settings[item.key as keyof typeof settings] ? "bg-accent-green" : "bg-border"}`}
               >
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${settings[item.key as keyof typeof settings] ? "translate-x-6" : "translate-x-0"}`} />
               </button>
             </div>
           ))}
+
+          {settings.slackIntegration && (
+            <div>
+              <label className="text-sm text-muted mb-1.5 block">Slack Webhook URL</label>
+              <input
+                type="url"
+                value={settings.slackWebhookUrl}
+                onChange={(e) => {
+                  setSettings((s) => ({ ...s, slackWebhookUrl: e.target.value }));
+                  setHasChanges(true);
+                }}
+                placeholder="https://hooks.slack.com/services/..."
+                className="w-full px-4 py-3 rounded-xl border border-border bg-surface2 text-text text-sm outline-none focus:border-accent-green transition-colors"
+              />
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-border/50">
+            <p className="text-xs text-muted mb-2">Verify integrations</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={sendTestEmail}
+                disabled={testEmailSending}
+                className="px-3 py-2 rounded-lg border border-accent-blue/30 bg-accent-blue/10 text-accent-blue text-xs font-semibold hover:bg-accent-blue/20 transition-colors disabled:opacity-60"
+              >
+                {testEmailSending ? "Sending Email..." : "Send Test Email"}
+              </button>
+              <button
+                onClick={sendTestSlack}
+                disabled={testSlackSending}
+                className="px-3 py-2 rounded-lg border border-accent-green/30 bg-accent-green/10 text-accent-green text-xs font-semibold hover:bg-accent-green/20 transition-colors disabled:opacity-60"
+              >
+                {testSlackSending ? "Sending Slack..." : "Send Test Slack"}
+              </button>
+            </div>
+
+            {testResult && (
+              <p className={`mt-2 text-xs ${testResult.ok ? "text-accent-green" : "text-accent-red"}`}>
+                {testResult.message}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

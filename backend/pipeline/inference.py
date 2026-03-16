@@ -52,8 +52,14 @@ class InferencePipeline:
         X_scaled = self.scaler.transform(feature_vector)
 
         # Step 1: Anomaly detection
-        anomaly_score = float(self.anomaly_detector.predict(X_scaled)[0])
-        is_anomaly = bool(self.anomaly_detector.is_anomaly(X_scaled)[0])
+        # We invert the score so that HIGHER = MORE ANOMALOUS
+        raw_score = float(self.anomaly_detector.predict(X_scaled)[0])
+        anomaly_score = -raw_score 
+        
+        # Apply a manual threshold to classify as threat (e.g., > 0.0 means anomaly)
+        # You can tune this threshold (e.g., to 0.1) to be stricter about what is a threat.
+        THRESHOLD = 0.0
+        is_anomaly = anomaly_score > THRESHOLD
 
         if is_anomaly:
             # Step 2: Classify threat type
@@ -115,9 +121,12 @@ class InferencePipeline:
         """Run inference on a batch of samples (already feature-aligned)."""
         X_scaled = self.scaler.transform(X_raw)
 
-        # Anomaly detection
-        anomaly_scores = self.anomaly_detector.predict(X_scaled)
-        is_anomaly = self.anomaly_detector.is_anomaly(X_scaled)
+        # Anomaly detection (Invert scores to make higher = anomalous)
+        raw_scores = self.anomaly_detector.predict(X_scaled)
+        anomaly_scores = -raw_scores
+        
+        THRESHOLD = 0.0
+        is_anomaly = anomaly_scores > THRESHOLD
 
         # Classification (for all — filter anomalies in results)
         classifications = self.classifier.predict_with_confidence(X_scaled)

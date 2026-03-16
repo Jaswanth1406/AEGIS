@@ -87,6 +87,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Request denied." }, { status: 403 });
     }
   }
+  
+  // LIVE DEMO HOOK: Trigger an "Anomalous Login" threat if the request comes from an external IP
+  const url = new URL(req.url);
+  const isSignIn = url.pathname.includes("/sign-in/email") || url.pathname.includes("/signin/email");
+  
+  if (isSignIn) {
+    const fwded = req.headers.get("x-forwarded-for");
+    const rawIp = fwded ? fwded.split(',')[0].trim() : ip(req, { platform: "vercel" });
+    
+    // For demo: if someone logs in from outside localhost, simulate a VPN threat
+    if (rawIp && rawIp !== "127.0.0.1" && rawIp !== "::1" && rawIp !== "localhost" && !rawIp.startsWith("192.168.")) {
+      try {
+        fetch("http://127.0.0.1:8000/api/internal/threats", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            threat_type: "Anomalous Login (VPN/Overseas)",
+            severity: "HIGH",
+            source_ip: rawIp,
+            target_system: "auth-gateway",
+            confidence_score: 0.96,
+            anomaly_score: 0.89,
+            explanation: `User attempted to authenticate from unauthorized external IP: ${rawIp}. Suspected compromised credentials or VPN usage.`,
+            shap_values: [
+              { feature: "location_mismatch", value: 0.65 },
+              { feature: "impossible_travel_velocity", value: 0.45 },
+              { feature: "login_time_anomaly", value: 0.20 }
+            ],
+            threat_fingerprint: [0.9, 0.1, 0.4, 0.8]
+          })
+        }).catch(() => {}); // Fire and forget
+      } catch (err) {
+        // Silently ignore to not break auth flow
+      }
+    }
+  }
 
   return authHandlers.POST(clonedReq);
 }

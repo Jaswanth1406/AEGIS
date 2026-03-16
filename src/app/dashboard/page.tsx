@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { AlertTriangle, Shield, Zap, CheckCircle, X, ChevronRight, Play, Brain, BookOpen, Activity } from "lucide-react";
+import { AlertTriangle, Shield, Zap, CheckCircle, X, ChevronRight, ChevronLeft, Play, Brain, BookOpen, Activity } from "lucide-react";
 import { threats as initialThreats, playbooks, aiExplanations, generateNewThreat, type Threat, type AttackOrigin } from "@/lib/mock-data";
 import { BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer } from "recharts";
 import AttackGlobe from "@/components/dashboard-attack-globe";
-import { fetchDashboardStats, fetchThreats, fetchPlaybooks, executePlaybook as apiExecutePlaybook } from "@/lib/api-client";
+import { fetchDashboardStats, fetchThreats, fetchPlaybooks, executePlaybook as apiExecutePlaybook, approveSuggestedPlaybook, dismissSuggestedPlaybook } from "@/lib/api-client";
+import { EditablePlaybook } from "@/components/editable-playbook";
 
 // Utility to generate deterministic coordinates from an IP string
 const generateIpCoordinates = (ip: string): [number, number] => {
@@ -141,9 +142,25 @@ function ThreatCard({ threat, onClick }: { threat: Threat; onClick: () => void }
 }
 
 // Threat Drawer
-function ThreatDrawer({ threat, onClose }: { threat: Threat | null; onClose: () => void }) {
+function ThreatDrawer({ threat, onClose, onExecute, onApprove, onDismiss }: { threat: Threat | null; onClose: () => void; onExecute: (id: string) => void; onApprove?: (id: string, steps?: any[]) => void; onDismiss?: (id: string) => void }) {
   if (!threat) return null;
   const config = severityConfig[threat.severity];
+  const isHoneytokenThreat = threat.name?.startsWith("Honeytoken Triggered:") || threat.type?.startsWith("Honeytoken Triggered:");
+  // Internal state to track if we've clicked the button
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const handleExecute = () => {
+    setIsExecuting(true);
+    // Call the parent's actual API hook
+    onExecute(threat.id);
+    
+    // Auto-close drawer after execution trigger successfully fires
+    setTimeout(() => {
+      onClose();
+      setIsExecuting(false);
+    }, 1500);
+  };
+  
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
@@ -156,6 +173,11 @@ function ThreatDrawer({ threat, onClose }: { threat: Threat | null; onClose: () 
           <div className="space-y-4">
             <div>
               <span className={`text-xs px-2 py-1 rounded-full font-semibold ${config.bg} ${config.color}`}>{threat.severity}</span>
+              {isHoneytokenThreat && (
+                <span className="ml-2 text-[10px] px-2 py-1 rounded-full font-semibold bg-accent-red/10 text-accent-red border border-accent-red/30">
+                  Honeytoken Alert
+                </span>
+              )}
               <h3 className="text-xl font-bold text-text mt-2">{threat.name}</h3>
               <p className="text-muted text-sm mt-1" style={{ fontFamily: "var(--font-space-mono), monospace" }}>{threat.id} · {threat.type}</p>
             </div>
@@ -191,12 +213,95 @@ function ThreatDrawer({ threat, onClose }: { threat: Threat | null; onClose: () 
                 ))}
               </div>
             </div>
+
+            {threat.ai_analysis && (
+              <div>
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-text mb-2 text-accent-blue">
+                  <Activity className="h-4 w-4" />
+                  AI Threat Analysis
+                </h4>
+                <div className="bg-accent-blue/5 border border-accent-blue/20 rounded-xl p-4 space-y-4">
+                  <div className="text-sm text-text whitespace-pre-wrap leading-relaxed">
+                    {threat.ai_analysis}
+                  </div>
+
+                  {(threat.confidence_score !== undefined || threat.anomaly_score !== undefined) && (
+                    <div className="flex gap-6 pt-2 border-t border-accent-blue/10">
+                      {threat.confidence_score !== undefined && (
+                        <div>
+                          <p className="text-xs text-muted mb-1">Confidence Score</p>
+                          <p className="text-sm font-semibold text-text">{(threat.confidence_score * 100).toFixed(1)}%</p>
+                        </div>
+                      )}
+                      {threat.anomaly_score !== undefined && (
+                        <div>
+                          <p className="text-xs text-muted mb-1">Anomaly Score</p>
+                          <p className="text-sm font-semibold text-text">{threat.anomaly_score.toFixed(2)}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {threat.shap_values && threat.shap_values.length > 0 && (
+                    <div className="pt-2 border-t border-accent-blue/10">
+                      <p className="text-xs text-muted mb-2">Key Contributing Factors (SHAP)</p>
+                      <div className="space-y-2">
+                        {threat.shap_values.map((shap: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="text-text font-mono bg-surface/50 px-1.5 py-0.5 rounded border border-border/50">{shap.feature}</span>
+                            <span className={shap.value > 0 ? "text-accent-red font-semibold" : "text-accent-green font-semibold"}>
+                              {shap.value > 0 ? "+" : ""}{shap.value.toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {threat.suggested_playbook && threat.suggested_playbook.length > 0 && (
+              <div>
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-text mb-2 text-accent-green">
+                  <Brain className="h-4 w-4" />
+                  AI Suggested Playbook
+                </h4>
+                <div className="bg-accent-green/5 border border-accent-green/20 rounded-xl p-4 space-y-4">
+                  <EditablePlaybook
+                    initialSteps={threat.suggested_playbook}
+                    onApprove={async (steps) => {
+                      if (onApprove) {
+                        await onApprove(threat.id, steps);
+                        onClose();
+                      }
+                    }}
+                    onDismiss={() => {
+                      if (onDismiss) onDismiss(threat.id);
+                      onClose();
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             <div>
               <h4 className="text-sm font-semibold text-text mb-2">Recommended Action</h4>
               <p className="text-muted text-sm">{threat.details.recommendedAction}</p>
             </div>
-            <button className="w-full py-3 bg-accent-red/10 text-accent-red font-semibold rounded-xl hover:bg-accent-red/20 transition-all border border-accent-red/30 flex items-center justify-center gap-2">
-              <Play className="h-4 w-4" /> Execute Response Playbook
+            <button 
+              onClick={handleExecute}
+              disabled={isExecuting}
+              className={`w-full py-3 ${isExecuting ? 'bg-accent-blue/10 text-accent-blue border-accent-blue/30' : 'bg-accent-red/10 text-accent-red hover:bg-accent-red/20 border-accent-red/30'} font-semibold rounded-xl transition-all border flex items-center justify-center gap-2`}
+            >
+              {isExecuting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div> Executing...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" /> Execute Response Playbook
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -211,6 +316,7 @@ export default function DashboardPage() {
   const [selectedThreat, setSelectedThreat] = useState<Threat | null>(null);
   const [playbookStates, setPlaybookStates] = useState<Record<string, "idle" | "loading" | "done">>({});
   const [activeTab, setActiveTab] = useState<"live" | "analysis" | "playbooks">("live");
+  const [analysisIndex, setAnalysisIndex] = useState(0);
   const [mapSelection, setMapSelection] = useState<
     | { kind: "none" }
     | { kind: "location"; name: string; locType: "Origin" | "Target" }
@@ -265,7 +371,11 @@ export default function DashboardPage() {
               affectedSystems: [t.target_system || "Unknown"],
               recommendedAction: "Execute containment playbook.",
               aiConfidence: t.confidence_score ? t.confidence_score * 100 : 90
-            }
+            },
+            shap_values: t.shap_values || undefined,
+            ai_analysis: t.ai_analysis || null,
+            confidence_score: t.confidence_score || undefined,
+            anomaly_score: t.anomaly_score || undefined,
           }));
           setThreatList(mappedThreats);
           
@@ -330,7 +440,11 @@ export default function DashboardPage() {
               affectedSystems: [t.target_system || "Unknown"],
               recommendedAction: "Review and isolate.",
               aiConfidence: t.confidence_score ? t.confidence_score * 100 : 90
-            }
+            },
+            shap_values: t.shap_values || undefined,
+            ai_analysis: t.ai_analysis || null,
+            confidence_score: t.confidence_score || undefined,
+            anomaly_score: t.anomaly_score || undefined,
           };
           setThreatList(prev => [newThreat, ...prev]);
           
@@ -379,11 +493,15 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const executePlaybookTrigger = useCallback(async (id: string, playDbId: number = 1) => {
+  const executePlaybookTrigger = useCallback(async (id: string, playDbId: number = 1, overrideThreatId?: string) => {
     setPlaybookStates((p) => ({ ...p, [id]: "loading" }));
-    if (!useMock && selectedThreat) {
+    
+    // Choose the specific threat passed, else the selected map threat
+    const threatToExecute = overrideThreatId || (selectedThreat ? selectedThreat.id : null);
+    
+    if (!useMock && threatToExecute) {
         try {
-            const rawId = selectedThreat.id.replace('THR-', '');
+            const rawId = threatToExecute.replace('THR-', '');
             await apiExecutePlaybook(playDbId, rawId);
         } catch(err) {
             console.warn("Failed to execute real playbook", err);
@@ -488,45 +606,125 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {activeTab === "analysis" && (
-            <div className="bg-surface rounded-xl border border-border p-5">
-              <h3 className="text-lg font-semibold text-text mb-1" style={{ fontFamily: "var(--font-syne), sans-serif" }}>
-                AI Threat Analysis
-              </h3>
-              <p className="text-muted text-sm mb-4">Most recent critical threat analysis</p>
-              <div className="bg-surface2 p-4 rounded-xl border border-border mb-4">
-                <div className="flex items-center justify-between mb-3">
+          {activeTab === "analysis" && (() => {
+            const indexableThreats = threatList.filter(t => t.shap_values && t.shap_values.length > 0);
+            const threatsToUse = indexableThreats.length > 0 ? indexableThreats : threatList;
+            
+            if (threatsToUse.length === 0) return (
+              <div className="bg-surface rounded-xl border border-border p-5 text-center text-muted">
+                 No threats available for analysis.
+              </div>
+            );
+            
+            const currentIndex = Math.min(analysisIndex, threatsToUse.length - 1);
+            const analysisThreat = threatsToUse[currentIndex];
+
+            const handlePrev = () => {
+              setAnalysisIndex(prev => Math.max(0, prev - 1));
+            };
+
+            const handleNext = () => {
+              setAnalysisIndex(prev => Math.min(threatsToUse.length - 1, prev + 1));
+            };
+
+            const confidenceNum = analysisThreat.confidence_score 
+              ? Math.round(analysisThreat.confidence_score * 100) 
+              : analysisThreat.details?.aiConfidence 
+                ? Math.round(analysisThreat.details.aiConfidence)
+                : 90;
+
+            const chartData = analysisThreat.shap_values && analysisThreat.shap_values.length > 0 
+              ? analysisThreat.shap_values.map((shap: any) => ({
+                  factor: shap.feature,
+                  score: Math.min(Math.abs(shap.value) * 100, 100),
+                  color: shap.value > 0 ? "#ef4444" : "#22d3ee"
+                }))
+              : [];
+
+            return (
+              <div className="bg-surface rounded-xl border border-border p-5 relative">
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h4 className="text-sm font-medium text-text">Data Exfiltration Attempt</h4>
-                    <p className="text-xs text-muted" style={{ fontFamily: "var(--font-space-mono), monospace" }}>
-                      THR-001
-                    </p>
+                    <h3 className="text-lg font-semibold text-text mb-1" style={{ fontFamily: "var(--font-syne), sans-serif" }}>
+                      AI Threat Analysis
+                    </h3>
+                    <p className="text-muted text-sm">Reviewing threat {currentIndex + 1} of {threatsToUse.length}</p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-bold text-accent-red" style={{ fontFamily: "var(--font-space-mono), monospace" }}>
-                      94%
-                    </span>
-                    <p className="text-xs text-muted">Confidence</p>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={handlePrev}
+                      disabled={currentIndex === 0}
+                      className="p-1.5 rounded-lg border border-border text-muted hover:text-text hover:bg-surface2 disabled:opacity-30 transition-colors"
+                      title="Previous Threat"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={handleNext}
+                      disabled={currentIndex === threatsToUse.length - 1}
+                      className="p-1.5 rounded-lg border border-border text-muted hover:text-text hover:bg-surface2 disabled:opacity-30 transition-colors"
+                      title="Next Threat"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
-                <p className="text-xs text-muted mb-3">Why was this flagged?</p>
-                <ResponsiveContainer width="100%" height={160}>
-                  <BarChart data={aiExplanations} layout="vertical" margin={{ left: 0, right: 10 }}>
-                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "#6b7394" }} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="factor" width={160} tick={{ fontSize: 11, fill: "#1a1f36" }} axisLine={false} tickLine={false} />
-                    <Bar dataKey="score" radius={[0, 4, 4, 0]} barSize={16}>
-                      {aiExplanations.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="bg-surface2 p-4 rounded-xl border border-border mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-medium text-text">{analysisThreat.name}</h4>
+                      <p className="text-xs text-muted" style={{ fontFamily: "var(--font-space-mono), monospace" }}>
+                        {analysisThreat.id}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-bold text-accent-red" style={{ fontFamily: "var(--font-space-mono), monospace" }}>
+                        {confidenceNum}%
+                      </span>
+                      <p className="text-xs text-muted">Confidence</p>
+                    </div>
+                  </div>
+                  
+                  {analysisThreat.ai_analysis && (
+                    <div className="mb-4">
+                      <p className="flex items-center gap-2 text-xs font-semibold text-accent-blue mb-2">
+                        <Brain className="h-3.5 w-3.5" />
+                        AI Explanation
+                      </p>
+                      <div className="text-sm text-text bg-surface border border-border p-3 rounded-lg leading-relaxed whitespace-pre-wrap">
+                        {analysisThreat.ai_analysis}
+                      </div>
+                    </div>
+                  )}
+
+                  {chartData.length > 0 ? (
+                    <>
+                      <p className="text-xs text-muted mb-3">Why was this flagged?</p>
+                      <ResponsiveContainer width="100%" height={Math.max(160, chartData.length * 40)}>
+                        <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 10 }}>
+                          <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "#6b7394" }} axisLine={false} tickLine={false} />
+                          <YAxis type="category" dataKey="factor" width={160} tick={{ fontSize: 11, fill: "#1a1f36" }} axisLine={false} tickLine={false} />
+                          <Bar dataKey="score" radius={[0, 4, 4, 0]} barSize={16}>
+                            {chartData.map((entry: any, index: number) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted">No detailed SHAP analysis available for this threat.</p>
+                  )}
+                </div>
+                <button 
+                  onClick={() => executePlaybookTrigger("analysis_" + analysisThreat.id, 1, analysisThreat.id)}
+                  className="w-full py-2.5 bg-accent-red/10 text-accent-red font-medium rounded-xl hover:bg-accent-red/20 transition-all border border-accent-red/30 flex items-center justify-center gap-2 text-sm"
+                >
+                  {playbookStates["analysis_" + analysisThreat.id] === "loading" ? "Executing..." : playbookStates["analysis_" + analysisThreat.id] === "done" ? "Executed" : "Execute Playbook"} <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
-              <button className="w-full py-2.5 bg-accent-red/10 text-accent-red font-medium rounded-xl hover:bg-accent-red/20 transition-all border border-accent-red/30 flex items-center justify-center gap-2 text-sm">
-                Execute Playbook <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
+            );
+          })()}
 
           {activeTab === "playbooks" && (
             <div className="bg-surface rounded-xl border border-border p-5">
@@ -663,7 +861,39 @@ export default function DashboardPage() {
       </div>
 
       {/* Threat Drawer */}
-      <ThreatDrawer threat={selectedThreat} onClose={() => setSelectedThreat(null)} />
+      <ThreatDrawer 
+        threat={selectedThreat} 
+        onClose={() => setSelectedThreat(null)} 
+        onExecute={(threatId) => executePlaybookTrigger("drawer_" + threatId, 1, threatId)} 
+        onApprove={async (threatId, steps) => {
+          try {
+            const rawId = threatId.replace('THR-', '');
+            await approveSuggestedPlaybook(rawId, {
+              name: `AI Playbook: ${selectedThreat?.name}`,
+              description: `Auto-generated response for ${selectedThreat?.type} from ${selectedThreat?.sourceIP}`,
+              steps: steps || selectedThreat?.suggested_playbook || []
+            });
+
+            setSelectedThreat((prev) => (prev ? {
+              ...prev,
+              status: "Contained",
+              suggested_playbook: undefined
+            } : null));
+          } catch(e) {
+            console.error("Failed to approve playbook:", e);
+          }
+        }}
+        onDismiss={async (threatId) => {
+           try {
+             const rawId = threatId.replace('THR-', '');
+             await dismissSuggestedPlaybook(rawId);
+             setSelectedThreat(prev => (prev ? { ...prev, suggested_playbook: undefined } : null));
+           } catch(e) {
+             console.error("Failed to dismiss playbook:", e);
+           }
+        }}
+      />
     </div>
   );
 }
+

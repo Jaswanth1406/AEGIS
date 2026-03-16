@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -8,6 +8,7 @@ import {
   Bell,
   BookOpen,
   ChevronDown,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -21,6 +22,7 @@ const navLinks = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Threats", href: "/dashboard/threats", icon: AlertTriangle },
   { label: "Playbooks", href: "/dashboard/playbooks", icon: BookOpen },
+  { label: "Honeytokens", href: "/dashboard/honeytokens", icon: KeyRound },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
@@ -28,7 +30,102 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<{id: string; title: string; time: string; read: boolean; severity: string}[]>([]);
+  const [popup, setPopup] = useState<{id: string; title: string; severity: string} | null>(null);
   const { data: session } = useSession();
+  const seenThreatIds = useRef<Set<string>>(new Set());
+
+  const severityStyles: Record<string, { border: string; iconBg: string; iconText: string; label: string; text: string }> = {
+    CRITICAL: { border: "border-l-accent-red", iconBg: "bg-accent-red/10", iconText: "text-accent-red", label: "CRITICAL ALERT", text: "text-accent-red" },
+    HIGH: { border: "border-l-orange-500", iconBg: "bg-orange-500/10", iconText: "text-orange-500", label: "HIGH ALERT", text: "text-orange-500" },
+    MEDIUM: { border: "border-l-accent-yellow", iconBg: "bg-accent-yellow/10", iconText: "text-accent-yellow", label: "MEDIUM ALERT", text: "text-accent-yellow" },
+    LOW: { border: "border-l-accent-green", iconBg: "bg-accent-green/10", iconText: "text-accent-green", label: "LOW ALERT", text: "text-accent-green" },
+  };
+
+  // Listen globally for all incoming threats
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("platform_token") || "demo-token";
+      const streamBaseUrl = process.env.NEXT_PUBLIC_PLATFORM_API_URL || "http://11.12.6.240:8000";
+      const evtSource = new EventSource(`${streamBaseUrl}/api/threats/stream?token=${token}`);
+
+      const pushNotification = (payload: any) => {
+        const threatId = String(payload.id || payload.threat_id || "").trim();
+        if (!threatId || seenThreatIds.current.has(threatId)) {
+          return;
+        }
+        seenThreatIds.current.add(threatId);
+
+        const severity = (payload.severity || "MEDIUM").toUpperCase();
+        const notif = {
+          id: threatId,
+          title: `${severity} THREAT: ${payload.threat_type || "Unknown"} from ${payload.source_ip || "Unknown IP"}`,
+          time: new Date().toLocaleTimeString(),
+          read: false,
+          severity
+        };
+
+        setNotifications(prev => [notif, ...prev].slice(0, 20));
+        setPopup(notif);
+        setTimeout(() => setPopup(null), 5000);
+
+        if (severity === "CRITICAL") {
+          fetch("/api/notifications/dispatch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).catch(() => {
+            // Notification dispatch failures should not impact UI updates
+          });
+        }
+      };
+
+      const handleThreatEvent = (rawData: string) => {
+        try {
+          const parsed = JSON.parse(rawData);
+          const payload = parsed?.payload || parsed;
+          if (!payload || !(payload.threat_type || payload.source_ip || payload.severity)) {
+            return;
+          }
+
+          pushNotification(payload);
+        } catch(err) {}
+      };
+
+      evtSource.addEventListener("threat.created", (e) => {
+        handleThreatEvent((e as MessageEvent).data);
+      });
+
+      evtSource.onmessage = (e) => {
+        handleThreatEvent((e as MessageEvent).data);
+      };
+
+      const pollLatestThreats = async () => {
+        try {
+          const res = await fetch(`${streamBaseUrl}/api/threats?page=1&limit=8`, {
+            headers: {
+              "Authorization": `Bearer ${token}`,
+            },
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+          items.forEach((item: any) => pushNotification(item));
+        } catch (err) {}
+      };
+
+      pollLatestThreats();
+      const pollTimer = setInterval(pollLatestThreats, 4000);
+
+      return () => {
+        clearInterval(pollTimer);
+        evtSource.close();
+      };
+    } catch (error) {}
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleLogout = async () => {
     await signOut();
@@ -73,12 +170,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <div className="flex-1" />
 
-          <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-surface2 border border-border text-xs text-muted min-w-[240px]">
-            <span className="opacity-70" style={{ fontFamily: "var(--font-space-mono), monospace" }}>
-              aegis.local/dashboard
-            </span>
-          </div>
-
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-green/10 border border-accent-green/30">
               <div className="w-2 h-2 rounded-full bg-accent-green pulse-live"></div>
@@ -87,9 +178,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </span>
             </div>
 
-            <button className="p-2 rounded-lg hover:bg-surface2 text-muted hover:text-text transition-colors" aria-label="Notifications">
-              <Bell className="h-5 w-5" />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => {
+                  setNotificationsOpen(!notificationsOpen);
+                  if (unreadCount > 0) {
+                    setNotifications(prev => prev.map(n => ({...n, read: true})));
+                  }
+                }}
+                className="p-2 rounded-lg hover:bg-surface2 text-muted hover:text-text transition-colors relative" aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1.5 w-2 h-2 bg-accent-red rounded-full" />
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-surface border border-border rounded-xl shadow-xl py-2 animate-slide-down">
+                  <div className="px-4 py-2 border-b border-border">
+                    <p className="text-sm font-bold text-text">Notifications</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <p className="p-4 text-xs text-muted text-center">No recent alerts</p>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} className="px-4 py-3 border-b border-border/50 hover:bg-surface2 transition-colors">
+                          <p className={`text-xs font-semibold mb-1 ${(severityStyles[n.severity] || severityStyles.MEDIUM).text}`}>{n.title}</p>
+                          <p className="text-[10px] text-muted">{n.time}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="relative">
               <button
@@ -216,6 +340,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">{children}</div>
         </div>
       </main>
+
+      {/* Global Notification Popup */}
+      {popup && (
+        <div className={`fixed bottom-6 right-6 z-[100] max-w-sm bg-surface border-l-4 ${(severityStyles[popup.severity] || severityStyles.MEDIUM).border} border border-border shadow-2xl rounded-lg p-4 animate-slide-in-right`}>
+          <div className="flex items-start gap-3">
+            <div className={`p-2 rounded-full shrink-0 ${(severityStyles[popup.severity] || severityStyles.MEDIUM).iconBg} ${(severityStyles[popup.severity] || severityStyles.MEDIUM).iconText}`}>
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-text truncate">{(severityStyles[popup.severity] || severityStyles.MEDIUM).label}</p>
+              <p className="text-xs text-muted mt-1 leading-snug break-words">{popup.title}</p>
+            </div>
+            <button onClick={() => setPopup(null)} className="text-muted hover:text-text shrink-0 p-1">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

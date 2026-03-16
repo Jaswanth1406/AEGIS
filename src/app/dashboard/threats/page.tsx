@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search, ChevronLeft, ChevronRight, Eye, Play, AlertTriangle, X } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Eye, Play, AlertTriangle, X, Sparkles } from "lucide-react";
 import { type Threat } from "@/lib/mock-data";
-import { fetchThreats, executePlaybook as apiExecutePlaybook } from "@/lib/api-client";
+import { fetchThreats, executePlaybook as apiExecutePlaybook, approveSuggestedPlaybook, dismissSuggestedPlaybook } from "@/lib/api-client";
+import { EditablePlaybook } from "@/components/editable-playbook";
 
 const severityConfig = {
   CRITICAL: { color: "text-accent-red", bg: "bg-accent-red/10", rowBg: "bg-accent-red/[0.03]" },
@@ -17,6 +18,8 @@ const statusColors: Record<string, string> = {
   Contained: "text-accent-blue",
   Blocked: "text-accent-green",
   Active: "text-accent-red",
+  Mitigating: "text-purple-400",
+  Mitigated: "text-purple-400",
 };
 
 function formatTime(date: Date) {
@@ -44,9 +47,12 @@ export default function ThreatsPage() {
             name: t.threat_type || "Unknown Threat",
             type: t.threat_type || "Anomaly",
             severity: t.severity || "MEDIUM",
-            status: t.status === "INVESTIGATING" ? "Investigating" : 
-                    t.status === "CONTAINED" ? "Contained" : 
-                    t.status === "RESOLVED" ? "Contained" : "Active",
+            status: t.status === "INVESTIGATING" ? "Investigating" :
+                    t.status === "CONTAINED" ? "Contained" :
+                    t.status === "RESOLVED" ? "Contained" :
+                    t.status === "MITIGATING" ? "Mitigating" :
+                    t.status === "MITIGATED" ? "Mitigated" :
+                    t.status === "BLOCKED" ? "Blocked" : "Active",
             sourceIP: t.source_ip || "0.0.0.0",
             targetSystem: t.target_system || "Unknown",
             timestamp: t.timestamp ? new Date(t.timestamp.endsWith('Z') || t.timestamp.includes('+') ? t.timestamp : `${t.timestamp}Z`) : new Date(),
@@ -55,9 +61,14 @@ export default function ThreatsPage() {
               attackVector: t.threat_type,
               indicators: ["Anomalous Traffic", "High Volume"],
               affectedSystems: [t.target_system || "Unknown"],
-              recommendedAction: "Execute containment playbook.",
+              recommendedAction: t.suggested_playbook ? "Review AI suggested playbook." : "Execute containment playbook.",
               aiConfidence: t.confidence_score ? t.confidence_score * 100 : 90
-            }
+            },
+            shap_values: t.shap_values || undefined,
+            ai_analysis: t.ai_analysis || null,
+            confidence_score: t.confidence_score || undefined,
+            anomaly_score: t.anomaly_score || undefined,
+            suggested_playbook: t.suggested_playbook || undefined,
           }));
           setAllThreats(mappedThreats);
         }
@@ -91,9 +102,14 @@ export default function ThreatsPage() {
               attackVector: t.threat_type || "Anomaly",
               indicators: ["Real-time Block"],
               affectedSystems: [t.target_system || "Unknown"],
-              recommendedAction: "Review and isolate.",
+              recommendedAction: t.suggested_playbook ? "Review AI suggested playbook." : "Review and isolate.",
               aiConfidence: t.confidence_score ? t.confidence_score * 100 : 90
-            }
+            },
+            shap_values: t.shap_values || undefined,
+            ai_analysis: t.ai_analysis || null,
+            confidence_score: t.confidence_score || undefined,
+            anomaly_score: t.anomaly_score || undefined,
+            suggested_playbook: t.suggested_playbook || undefined,
           };
           setAllThreats(prev => [newThreat, ...prev]);
         } catch(err) {
@@ -122,9 +138,25 @@ export default function ThreatsPage() {
     setExecutingPlaybook(threatId);
     try {
       const rawId = threatId.replace('THR-', '');
-      await apiExecutePlaybook(1, rawId);
+      const threat = allThreats.find(t => t.id === threatId);
+
+      if (threat?.suggested_playbook && threat.suggested_playbook.length > 0) {
+        // Run the AI Suggested Playbook for this specific threat
+        await approveSuggestedPlaybook(rawId, {
+          name: `AI Playbook: ${threat.name}`,
+          description: `Auto-generated response for ${threat.type} from ${threat.sourceIP}`,
+          steps: threat.suggested_playbook,
+        });
+        // Update status locally to "Mitigated" after execution
+        setAllThreats(prev =>
+          prev.map(t => t.id === threatId ? { ...t, status: "Mitigated", suggested_playbook: undefined } : t)
+        );
+      } else {
+        // Fallback: run a generic playbook
+        await apiExecutePlaybook(1, rawId);
+      }
     } catch (err) {
-      console.warn("Failed to execute real playbook", err);
+      console.warn("Failed to execute playbook", err);
     }
     setTimeout(() => setExecutingPlaybook(null), 2000);
   };
@@ -263,6 +295,9 @@ export default function ThreatsPage() {
             <div className="space-y-4">
               <div>
                 <span className={`text-xs px-2 py-1 rounded-full font-semibold ${severityConfig[selectedThreat.severity].bg} ${severityConfig[selectedThreat.severity].color}`}>{selectedThreat.severity}</span>
+                {(selectedThreat.name?.startsWith("Honeytoken Triggered:") || selectedThreat.type?.startsWith("Honeytoken Triggered:")) && (
+                  <span className="ml-2 text-[10px] px-2 py-1 rounded-full font-semibold bg-accent-red/10 text-accent-red border border-accent-red/30">Honeytoken Alert</span>
+                )}
                 <h2 className="text-xl font-bold text-text mt-2">{selectedThreat.name}</h2>
                 <p className="text-muted text-sm" style={{ fontFamily: "var(--font-space-mono), monospace" }}>{selectedThreat.id} · {selectedThreat.type}</p>
               </div>
@@ -285,6 +320,92 @@ export default function ThreatsPage() {
                 <h4 className="text-sm font-semibold text-text mb-2">Recommended Action</h4>
                 <p className="text-muted text-sm">{selectedThreat.details.recommendedAction}</p>
               </div>
+              {selectedThreat.ai_analysis && (
+                <div>
+                  <h4 className="flex items-center gap-2 text-sm font-semibold text-text mb-2 text-accent-blue">
+                    <Sparkles className="h-4 w-4" />
+                    AI Threat Analysis
+                  </h4>
+                  <div className="bg-accent-blue/5 border border-accent-blue/20 rounded-xl p-4 space-y-4">
+                    <div className="text-sm text-text whitespace-pre-wrap leading-relaxed">
+                      {selectedThreat.ai_analysis}
+                    </div>
+
+                    {(selectedThreat.confidence_score !== undefined || selectedThreat.anomaly_score !== undefined) && (
+                      <div className="flex gap-6 pt-2 border-t border-accent-blue/10">
+                        {selectedThreat.confidence_score !== undefined && (
+                          <div>
+                            <p className="text-xs text-muted mb-1">Confidence Score</p>
+                            <p className="text-sm font-semibold text-text">{(selectedThreat.confidence_score * 100).toFixed(1)}%</p>
+                          </div>
+                        )}
+                        {selectedThreat.anomaly_score !== undefined && (
+                          <div>
+                            <p className="text-xs text-muted mb-1">Anomaly Score</p>
+                            <p className="text-sm font-semibold text-text">{selectedThreat.anomaly_score.toFixed(2)}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedThreat.shap_values && selectedThreat.shap_values.length > 0 && (
+                      <div className="pt-2 border-t border-accent-blue/10">
+                        <p className="text-xs text-muted mb-2">Key Contributing Factors (SHAP)</p>
+                        <div className="space-y-2">
+                          {selectedThreat.shap_values.map((shap: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between text-xs">
+                              <span className="text-text font-mono bg-surface/50 px-1.5 py-0.5 rounded border border-border/50">{shap.feature}</span>
+                              <span className={shap.value > 0 ? "text-accent-red font-semibold" : "text-accent-green font-semibold"}>
+                                {shap.value > 0 ? "+" : ""}{shap.value.toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedThreat.suggested_playbook && selectedThreat.suggested_playbook.length > 0 && (
+                <div>
+                  <h4 className="flex items-center gap-2 text-sm font-semibold text-text mb-2 text-accent-green">
+                    <Sparkles className="h-4 w-4" />
+                    AI Suggested Playbook
+                  </h4>
+                  <div className="bg-accent-green/5 border border-accent-green/20 rounded-xl p-4 space-y-4">
+                    <EditablePlaybook
+                      initialSteps={selectedThreat.suggested_playbook}
+                      onApprove={async (editedSteps) => {
+                        try {
+                          const rawId = selectedThreat.id.replace('THR-', '');
+                          await approveSuggestedPlaybook(rawId, {
+                            name: `AI Playbook: ${selectedThreat.name}`,
+                            description: `Auto-generated response for ${selectedThreat.type} from ${selectedThreat.sourceIP}`,
+                            steps: editedSteps
+                          });
+                          setSelectedThreat({
+                            ...selectedThreat,
+                            status: "Contained",
+                            suggested_playbook: undefined
+                          });
+                        } catch(e) {
+                          console.error("Failed to approve playbook:", e);
+                        }
+                      }}
+                      onDismiss={async () => {
+                        try {
+                          const rawId = selectedThreat.id.replace('THR-', '');
+                          await dismissSuggestedPlaybook(rawId);
+                          setSelectedThreat({ ...selectedThreat, suggested_playbook: undefined });
+                        } catch(e) {
+                          console.error("Failed to dismiss playbook:", e);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

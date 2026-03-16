@@ -2,9 +2,11 @@ import os
 import sys
 import uuid
 import time
+import threading
+import collections
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import urllib.request
@@ -205,6 +207,96 @@ playbook_logs = []
 settings_db = AppSettings()
 
 
+# ─── Flood Telemetry Tracker ────────────────────────────────
+FLOOD_WINDOW_SECONDS = 5          # Sliding window size
+FLOOD_THRESHOLD_RPS = 50          # Requests/s to trigger flood detection
+FLOOD_COOLDOWN_SECONDS = 15       # Min seconds between alerts for same IP
+
+class FloodTelemetry:
+    """
+    Tracks incoming requests per source IP in a sliding time window.
+    When the request rate exceeds the threshold, computes CIC-IDS-style
+    flow features and feeds them into the ML pipeline.
+    """
+    def __init__(self):
+        # ip -> deque of request timestamps
+        self._timestamps: dict[str, collections.deque] = collections.defaultdict(collections.deque)
+        # ip -> last alert timestamp (for cooldown)
+        self._last_alert: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def record(self, source_ip: str, payload_bytes: int = 512) -> dict | None:
+        """
+        Record a request from source_ip. Returns a feature dict if a flood
+        is detected (for passing to the ML pipeline), else None.
+        """
+        now = time.time()
+        with self._lock:
+            dq = self._timestamps[source_ip]
+            dq.append((now, payload_bytes))
+            # Prune entries outside the window
+            cutoff = now - FLOOD_WINDOW_SECONDS
+            while dq and dq[0][0] < cutoff:
+                dq.popleft()
+
+            count = len(dq)
+            rps = count / FLOOD_WINDOW_SECONDS
+
+            if rps < FLOOD_THRESHOLD_RPS:
+                return None  # Normal traffic
+
+            # Check cooldown
+            last = self._last_alert.get(source_ip, 0)
+            if now - last < FLOOD_COOLDOWN_SECONDS:
+                return None  # Already alerted recently
+
+            self._last_alert[source_ip] = now
+
+            # ── Compute CIC-IDS2017-style features ──
+            timestamps = [t for t, _ in dq]
+            sizes = [b for _, b in dq]
+            total_fwd = count
+            total_bwd = max(1, count // 10)   # flood has almost no back-traffic
+
+            # Inter-arrival times
+            iats = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)] if len(timestamps) > 1 else [0.001]
+            iat_mean = (sum(iats) / len(iats)) * 1e6   # convert to microseconds
+            iat_std  = (sum((x - iat_mean/1e6)**2 for x in iats) / max(len(iats),1)) ** 0.5 * 1e6
+
+            flow_duration = max((timestamps[-1] - timestamps[0]) * 1e6, 1)  # microseconds
+            total_bytes   = sum(sizes)
+            pkt_mean      = total_bytes / max(count, 1)
+            pkt_std       = (sum((s - pkt_mean)**2 for s in sizes) / max(count, 1)) ** 0.5
+            flow_bytes_s  = total_bytes / FLOOD_WINDOW_SECONDS
+            flow_pkts_s   = count / FLOOD_WINDOW_SECONDS
+
+            features = {
+                "Destination Port":             80,
+                "Flow Duration":                flow_duration,
+                "Total Fwd Packets":            total_fwd,
+                "Total Backward Packets":       total_bwd,
+                "Total Length of Fwd Packets":  total_bytes,
+                "Total Length of Bwd Packets":  total_bwd * 40,
+                "Fwd Packet Length Mean":       pkt_mean,
+                "Fwd Packet Length Std":        pkt_std,
+                "Bwd Packet Length Mean":       40.0,
+                "Bwd Packet Length Std":        5.0,
+                "Flow Bytes/s":                 flow_bytes_s,
+                "Flow Packets/s":               flow_pkts_s,
+                "Flow IAT Mean":                iat_mean,
+                "Flow IAT Std":                 iat_std,
+                "Fwd IAT Mean":                 iat_mean,
+                "Bwd IAT Mean":                 iat_mean * 20,
+                "Packet Length Mean":           pkt_mean,
+                "Packet Length Std":            pkt_std,
+                "Average Packet Size":          pkt_mean,
+                "Active Mean":                  flow_duration,
+            }
+            return features
+
+flood_telemetry = FloodTelemetry()
+
+
 # ─── Endpoints ────────────────────────────────────────
 @app.get("/", response_model=HealthResponse)
 async def health():
@@ -229,8 +321,11 @@ async def predict(request: ThreatPredictionRequest, background_tasks: Background
     )
     
     # Forward the threat detection to the main Platform Backend API
-    print(f"📡 Queuing push for {result['threat_type']} prediction to Platform API...")
-    background_tasks.add_task(push_threat_to_platform, result)
+    if result["threat_type"] != "Benign":
+        print(f"📡 Queuing push for {result['threat_type']} prediction to Platform API...")
+        background_tasks.add_task(push_threat_to_platform, result)
+    else:
+        print(f"🟢 Allowed Benign traffic. Not pushing to threat dashboard.")
         
     return result
 
@@ -239,6 +334,34 @@ async def predict(request: ThreatPredictionRequest, background_tasks: Background
 async def get_features():
     """List expected input features."""
     return {"features": SELECTED_FEATURES, "count": len(SELECTED_FEATURES)}
+
+
+@app.api_route("/demo/flood", methods=["GET", "POST", "PUT"])
+async def flood_target(request: Request, background_tasks: BackgroundTasks):
+    """
+    Demo flood target endpoint.
+    Attackers hammer this endpoint; the server measures the request rate
+    and feeds detected floods into the ML pipeline.
+    """
+    source_ip = request.client.host if request.client else "0.0.0.0"
+    # Estimate payload size from Content-Length header or default 512 bytes
+    payload_bytes = int(request.headers.get("content-length", 512))
+
+    features = flood_telemetry.record(source_ip, payload_bytes)
+
+    if features:
+        # Run ML inference synchronously (fast) then push in background
+        result = pipeline.predict(
+            raw_features=features,
+            source_ip=source_ip,
+            target_system="demo-flood-target",
+        )
+        print(f"🚨 FLOOD DETECTED from {source_ip} → {result['threat_type'].upper()} | {result['severity']}")
+        if result["threat_type"] != "Benign":
+            background_tasks.add_task(push_threat_to_platform, result)
+
+    # Always return 200 (the attacker thinks it's a real endpoint)
+    return {"status": "ok"}
 
 
 # ─── Playbook Endpoints ──────────────────────────────

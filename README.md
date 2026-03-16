@@ -31,6 +31,9 @@ Traditional signature-based security systems fail against zero-day attacks. AEGI
 - **Real-Time Threat Feed**: Live dashboard with dynamic event ingestion, showing critical stats, active threats, and global attack origin mapping via interactive WebGL maps.
 - **Autonomous Playbooks**: Automated 4-step response workflows (`Observe` → `Isolate` → `Remediate` → `Validate`) that execute instantly upon high-confidence threat detection.
 - **Explainable AI Panel**: Visualizes the decision logic of the ML model directly in the UI, answering *why* a threat was blocked.
+- **Adaptive Honeytokens**: Deploy decoy credentials/API keys/files/records from the dashboard and auto-promote triggered token events to **CRITICAL** incidents.
+- **Notification Orchestration**: In-app alert center + popup alerts, configurable **Email Notifications**, **Critical Alerts**, **Weekly Report**, and **Slack Integration** per analyst.
+- **SMTP + Slack Delivery**: Direct SMTP delivery for email notifications and Slack Incoming Webhook support for critical alerts.
 - **Robust Security**: Protected by Arcjet bot protection, rate limiting, and Next.js server-side route shielding. Secure authentication managed by Better Auth.
 
 ---
@@ -59,7 +62,17 @@ The detection engine. A localized Python FastAPI server that ingests raw network
 | `/dashboard`           | Main dashboard — stats cards, live threat feed, attack map, AI panel, playbooks |
 | `/dashboard/threats`   | Threats table with severity filters, search, and pagination                      |
 | `/dashboard/playbooks` | Playbook cards with animated step-by-step execution                              |
+| `/dashboard/honeytokens` | Honeytoken management — create, list, filter, deactivate, and copy token values |
 | `/dashboard/settings`  | User profile, notifications, security preferences                                |
+
+### Notification API Routes
+
+| Route | Description |
+| --- | --- |
+| `/api/notifications/dispatch` | Sends CRITICAL alert notifications based on user settings (email/slack) |
+| `/api/notifications/test-email` | Sends a test email with live weekly summary stats |
+| `/api/notifications/test-slack` | Sends a test Slack message using saved webhook |
+| `/api/notifications/weekly-report` | Cron-friendly endpoint to send weekly report emails |
 
 ---
 
@@ -78,6 +91,7 @@ The detection engine. A localized Python FastAPI server that ingests raw network
 | Security   | Arcjet (Rate Limit · Bot Protection · Shield) |
 | Database   | Neon PostgreSQL (Serverless)                    |
 | Maps/Data  | react-simple-maps, Recharts                     |
+| Notifications | Nodemailer (SMTP), Slack Incoming Webhooks    |
 
 ---
 
@@ -121,8 +135,20 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 ARCJET_KEY=your-arcjet-key
 
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_PLATFORM_API_URL=http://11.12.6.240:8000
 
 NEON_DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+
+# SMTP (Direct Email Delivery)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@domain.com
+SMTP_PASS=your-app-password
+SMTP_FROM=AEGIS Alerts <your-email@domain.com>
+
+# Optional: secure weekly report cron endpoint
+WEEKLY_REPORT_CRON_SECRET=your-random-secret
 ```
 
 > *For Google OAuth: Ensure you set **Authorized JavaScript origins** to `http://localhost:3000` and **Authorized redirect URIs** to `http://localhost:3000/api/auth/callback/google` in your GCP console.*
@@ -192,7 +218,13 @@ AEGIS/
 │   │   │   ├── page.tsx   
 │   │   │   ├── threats/page.tsx   
 │   │   │   ├── playbooks/page.tsx   
+│   │   │   ├── honeytokens/page.tsx
 │   │   │   └── settings/page.tsx  
+│   │   ├── api/notifications/              # Notification delivery routes
+│   │   │   ├── dispatch/route.ts
+│   │   │   ├── test-email/route.ts
+│   │   │   ├── test-slack/route.ts
+│   │   │   └── weekly-report/route.ts
 │   │   ├── login/page.tsx   
 │   │   ├── register/page.tsx  
 │   │   ├── page.tsx                         # Landing page
@@ -200,6 +232,7 @@ AEGIS/
 │   ├── lib/
 │   │   ├── auth.ts                          # Better Auth server configuration
 │   │   ├── arcjet.ts                        # Arcjet security configuration
+│   │   ├── notification-delivery.ts         # SMTP + Slack delivery helpers
 │   │   └── mock-data.ts                     # Mock map & playbook states
 │   └── middleware.ts                        # Server-side routing protection
 │

@@ -12,6 +12,19 @@ const getHeaders = () => ({
   "Authorization": `Bearer ${typeof window !== "undefined" ? localStorage.getItem("platform_token") || "demo-token" : "demo-token"}`,
 });
 
+export type HoneytokenStatus = "active" | "triggered" | "deactivated";
+
+export interface Honeytoken {
+  id: number;
+  name: string;
+  token_type: "credential" | "api_key" | "database_record" | "file" | "url" | string;
+  token_value: string;
+  deployed_location: string;
+  status: HoneytokenStatus;
+  created_at: string;
+  triggered_at: string | null;
+}
+
 export const fetchDashboardStats = async () => {
   const res = await fetch(`${API_BASE_URL}/api/dashboard/stats`, { headers: getHeaders() });
   if (!res.ok) throw new Error("Failed to fetch stats");
@@ -40,6 +53,16 @@ export const fetchPlaybooks = async () => {
   return res.json();
 };
 
+export const createPlaybook = async (payload: any) => {
+  const res = await fetch(`${API_BASE_URL}/api/playbooks`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error("Failed to create playbook");
+  return res.json();
+};
+
 export const executePlaybook = async (playbookId: string | number, threatId: string | number) => {
   const res = await fetch(`${API_BASE_URL}/api/playbooks/${playbookId}/execute`, {
     method: "POST",
@@ -50,8 +73,63 @@ export const executePlaybook = async (playbookId: string | number, threatId: str
   return res.json();
 };
 
+export const approveSuggestedPlaybook = async (threatId: string | number, payload: any) => {
+  const res = await fetch(`${API_BASE_URL}/api/threats/${threatId}/approve-playbook`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to approve playbook suggestion");
+  return res.json();
+};
+
+export const dismissSuggestedPlaybook = async (threatId: string | number) => {
+  const res = await fetch(`${API_BASE_URL}/api/threats/${threatId}/dismiss-playbook`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to dismiss playbook suggestion");
+  return res.json();
+};
+
 export const fetchThreatById = async (threatId: string | number) => {
   const res = await fetch(`${API_BASE_URL}/api/threats/${threatId}`, { headers: getHeaders() });
   if (!res.ok) throw new Error("Failed to fetch threat details");
+  return res.json();
+};
+
+export const fetchHoneytokens = async (): Promise<Honeytoken[]> => {
+  const res = await fetch(`${API_BASE_URL}/api/honeytokens`, { headers: getHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch honeytokens");
+  return res.json();
+};
+
+export const fetchHoneytokenById = async (id: string | number): Promise<Honeytoken> => {
+  const res = await fetch(`${API_BASE_URL}/api/honeytokens/${id}`, { headers: getHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch honeytoken");
+  return res.json();
+};
+
+export const createHoneytoken = async (payload: {
+  name: string;
+  token_type: string;
+  token_value?: string;
+  deployed_location: string;
+}): Promise<Honeytoken> => {
+  const res = await fetch(`${API_BASE_URL}/api/honeytokens`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to create honeytoken");
+  return res.json();
+};
+
+export const deactivateHoneytoken = async (id: string | number): Promise<Honeytoken> => {
+  const res = await fetch(`${API_BASE_URL}/api/honeytokens/${id}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to deactivate honeytoken");
   return res.json();
 };

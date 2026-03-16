@@ -41,6 +41,20 @@
   --grad-5-end: #262335;
 }
 
+.dark {
+  --bg: #09090b;
+  --surface: #18181b;
+  --surface2: #27272a;
+  --border: #3f3f46;
+  --accent-green: #00b876; /* keep branding */
+  --accent-red: #e53e5c;
+  --accent-yellow: #d49a00;
+  --accent-blue: #3570e8;
+  --text: #fafafa;
+  --muted: #a1a1aa;
+}
+
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;

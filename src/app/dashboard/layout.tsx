@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Shield, LayoutDashboard, AlertTriangle, BookOpen, Settings, LogOut, User, ChevronDown } from "lucide-react";
-import { signOut } from "@/lib/auth-client";
+import { signOut, useSession } from "@/lib/auth-client";
 
 const navLinks = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -16,11 +16,16 @@ const navLinks = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const { data: session } = useSession();
 
   const handleLogout = async () => {
     await signOut();
-    window.location.href = "/login";
+    window.location.href = "/";
   };
+
+  const userName = session?.user?.name || "Analyst";
+  const userEmail = session?.user?.email || "analyst@aegis-ai.com";
+  const userInitials = userName.substring(0, 2).toUpperCase();
 
   return (
     <div className="min-h-screen bg-bg">
@@ -71,17 +76,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-surface2 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-accent-green/20 flex items-center justify-center">
-                    <User className="h-4 w-4 text-accent-green" />
+                  <div className="w-8 h-8 rounded-full bg-accent-green/20 flex items-center justify-center overflow-hidden">
+                    {session?.user?.image ? (
+                      <img src={session.user.image} alt={userName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-bold text-accent-green">{userInitials}</span>
+                    )}
                   </div>
-                  <span className="text-sm text-text hidden sm:block">Alex Morgan</span>
+                  <span className="text-sm text-text hidden sm:block">{userName}</span>
                   <ChevronDown className="h-4 w-4 text-muted" />
                 </button>
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-surface border border-border rounded-xl shadow-xl py-2 animate-slide-down">
                     <div className="px-4 py-2 border-b border-border">
-                      <p className="text-sm font-medium text-text">Alex Morgan</p>
-                      <p className="text-xs text-muted">alex.morgan@aegis-ai.com</p>
+                      <p className="text-sm font-medium text-text truncate">{userName}</p>
+                      <p className="text-xs text-muted truncate">{userEmail}</p>
                     </div>
                     <Link href="/dashboard/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-muted hover:text-accent-green hover:bg-surface2 transition-colors" onClick={() => setUserMenuOpen(false)}>
                       <Settings className="h-4 w-4" /> Settings

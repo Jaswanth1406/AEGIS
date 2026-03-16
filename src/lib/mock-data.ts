@@ -13,6 +13,7 @@ export interface Threat {
     indicators: string[];
     affectedSystems: string[];
     recommendedAction: string;
+    aiConfidence?: number;
   };
 }
 

@@ -1,27 +1,90 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Mail, Shield, Bell, Moon, Sun, Save, CheckCircle } from "lucide-react";
+import { useSession } from "@/lib/auth-client";
+import { useTheme } from "next-themes";
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  
+  const [mounted, setMounted] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  
   const [settings, setSettings] = useState({
-    name: "Alex Morgan",
-    email: "alex.morgan@aegis-ai.com",
+    name: "Loading...",
+    email: "loading...",
     role: "Security Analyst",
-    darkMode: false,
     emailNotifications: true,
     criticalAlerts: true,
     weeklyReport: true,
     slackIntegration: false,
-    twoFactor: true,
+    twoFactor: false, // Better Auth 2FA requires plugin
     sessionTimeout: "30",
   });
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  // Track if we made changes
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Sync session data when it loads
+  useEffect(() => {
+    setMounted(true);
+    if (session?.user) {
+      setSettings(s => ({
+        ...s,
+        name: session.user.name || "Unknown User",
+        email: session.user.email || "No Email",
+      }));
+      
+      // Fetch DB preferences
+      fetch("/api/user/settings")
+        .then(res => res.json())
+        .then(data => {
+            if (data && !data.error) {
+               setSettings(s => ({
+                 ...s,
+                 sessionTimeout: data.sessionTimeout?.toString() || "30",
+               }));
+               if (data.darkMode !== undefined) {
+                 setTheme(data.darkMode ? "dark" : "light");
+               }
+            }
+        })
+        .catch(console.error);
+    }
+  }, [session, setTheme]); // Run once on mount
+
+  // Handle local dark mode toggle
+  const toggleDarkMode = () => {
+    const isDark = resolvedTheme === "dark";
+    setTheme(isDark ? "light" : "dark");
+    setHasChanges(true);
   };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await fetch("/api/user/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionTimeout: settings.sessionTimeout,
+          darkMode: resolvedTheme === "dark"
+        })
+      });
+      setSaved(true);
+      setHasChanges(false);
+      setTimeout(() => setSaved(false), 3000);
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!mounted) return null;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 fade-in">
@@ -77,7 +140,7 @@ export default function SettingsPage() {
       {/* Appearance */}
       <div className="bg-surface rounded-xl border border-border p-6">
         <h2 className="text-lg font-semibold text-text mb-4 flex items-center gap-2">
-          {settings.darkMode ? <Moon className="h-5 w-5 text-accent-green" /> : <Sun className="h-5 w-5 text-accent-green" />} Appearance
+          {resolvedTheme === "dark" ? <Moon className="h-5 w-5 text-accent-green" /> : <Sun className="h-5 w-5 text-accent-green" />} Appearance
         </h2>
         <div className="flex items-center justify-between">
           <div>
@@ -85,10 +148,10 @@ export default function SettingsPage() {
             <p className="text-xs text-muted">Use dark theme across the application</p>
           </div>
           <button
-            onClick={() => setSettings((s) => ({ ...s, darkMode: !s.darkMode }))}
-            className={`w-12 h-6 rounded-full p-1 transition-colors ${settings.darkMode ? "bg-accent-green" : "bg-border"}`}
+            onClick={toggleDarkMode}
+            className={`w-12 h-6 rounded-full p-1 transition-colors ${resolvedTheme === "dark" ? "bg-accent-green" : "bg-border"}`}
           >
-            <div className={`w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${settings.darkMode ? "translate-x-6" : "translate-x-0"}`} />
+            <div className={`w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${resolvedTheme === "dark" ? "translate-x-6" : "translate-x-0"}`} />
           </button>
         </div>
       </div>
@@ -143,7 +206,10 @@ export default function SettingsPage() {
             <label className="text-sm text-muted mb-1.5 block">Session Timeout (minutes)</label>
             <select
               value={settings.sessionTimeout}
-              onChange={(e) => setSettings((s) => ({ ...s, sessionTimeout: e.target.value }))}
+              onChange={(e) => {
+                setSettings((s) => ({ ...s, sessionTimeout: e.target.value }));
+                setHasChanges(true);
+              }}
               className="px-4 py-3 rounded-xl border border-border bg-surface2 text-text text-sm outline-none focus:border-accent-green transition-colors w-full sm:w-48"
             >
               <option value="15">15 minutes</option>
@@ -155,17 +221,22 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Save Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        {hasChanges && (
+           <span className="text-sm text-accent-yellow flex items-center mr-2">Unsaved changes...</span>
+        )}
         <button
           onClick={handleSave}
+          disabled={saving || !hasChanges}
           className={`flex items-center gap-2 px-6 py-3 font-medium rounded-xl transition-all text-sm ${
             saved
               ? "bg-accent-green/10 text-accent-green border border-accent-green/30"
-              : "bg-accent-green text-white hover:bg-accent-green/90 shadow-lg shadow-accent-green/25"
+              : (!hasChanges 
+                   ? "bg-surface2 text-muted border border-border cursor-not-allowed" 
+                   : "bg-accent-green text-white hover:bg-accent-green/90 shadow-lg shadow-accent-green/25")
           }`}
         >
-          {saved ? <><CheckCircle className="h-4 w-4" /> Saved!</> : <><Save className="h-4 w-4" /> Save Changes</>}
+          {saving ? "Saving..." : saved ? <><CheckCircle className="h-4 w-4" /> Saved!</> : <><Save className="h-4 w-4" /> Save Changes</>}
         </button>
       </div>
     </div>

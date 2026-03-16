@@ -4,9 +4,11 @@ Real-time threat detection API.
 """
 import os
 import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import urllib.request
+import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import SELECTED_FEATURES
@@ -34,6 +36,24 @@ pipeline = InferencePipeline()
 @app.on_event("startup")
 async def startup():
     pipeline.load_models()
+
+PLATFORM_API_URL = os.environ.get("PLATFORM_API_URL", "http://11.12.6.240:8000")
+INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "internal-dev-key")
+
+def push_threat_to_platform(threat_data: dict):
+    if not PLATFORM_API_URL:
+        return
+    url = f"{PLATFORM_API_URL}/api/internal/threats"
+    headers = {
+        "Content-Type": "application/json",
+        "X-Internal-API-Key": INTERNAL_API_KEY
+    }
+    try:
+        req = urllib.request.Request(url, data=json.dumps(threat_data).encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=3) as response:
+            print(f"✅ Pushed threat to Platform API: {response.status}")
+    except Exception as e:
+        print(f"⚠️ Failed to push threat to Platform API ({url}): {e}")
 
 
 # ─── Request/Response Models ─────────────────────────
@@ -103,7 +123,7 @@ async def health():
 
 
 @app.post("/predict", response_model=ThreatPredictionResponse)
-async def predict(request: ThreatPredictionRequest):
+async def predict(request: ThreatPredictionRequest, background_tasks: BackgroundTasks):
     """
     Analyze network flow features and detect threats.
     Returns matched schema for backend consumption.
@@ -113,6 +133,11 @@ async def predict(request: ThreatPredictionRequest):
         source_ip=request.source_ip,
         target_system=request.target_system
     )
+    
+    # Forward the threat detection to the main Platform Backend API
+    if result["threat_type"] != "benign":
+        background_tasks.add_task(push_threat_to_platform, result)
+        
     return result
 
 

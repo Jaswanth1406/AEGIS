@@ -166,6 +166,18 @@ npm run dev
 # Runs on http://localhost:3000
 ```
 
+**Terminal 3 (Live Traffic Simulation - Optional but Recommended):**
+
+To see the platform truly come alive, run the traffic simulator. This script organically samples real benign and malicious network flows from the original CIC-IDS2017 dataset and fires them at your local ML engine every few seconds. 
+
+Watch your Next.js Dashboard and live Attack Globe carefully — any anomalies the AI catches will be classified and pushed over WebSockets to your screen instantly!
+
+```bash
+cd backend
+venv\Scripts\activate
+python simulate_traffic.py
+```
+
 ---
 
 ## 📁 Project Structure

@@ -1,10 +1,34 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AlertTriangle, Shield, Zap, CheckCircle, X, ChevronRight, Play } from "lucide-react";
-import { threats as initialThreats, playbooks, attackOrigins, protectedTargets, aiExplanations, generateNewThreat, type Threat } from "@/lib/mock-data";
+import { threats as initialThreats, playbooks, aiExplanations, generateNewThreat, type Threat, type AttackOrigin } from "@/lib/mock-data";
 import { BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer } from "recharts";
 import AttackGlobe from "@/components/dashboard-attack-globe";
+import { fetchDashboardStats, fetchThreats, executePlaybook as apiExecutePlaybook } from "@/lib/api-client";
+
+// Utility to generate deterministic coordinates from an IP string
+const generateIpCoordinates = (ip: string): [number, number] => {
+  let hash = 0;
+  for (let i = 0; i < ip.length; i++) {
+    hash = ip.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const lon = (Math.abs(hash) % 360) - 180;
+  const lat = (Math.abs(hash >> 8) % 130) - 60;
+  return [lon, lat];
+};
+
+// Map backend target systems to fixed corporate locations
+const getTargetCoordinates = (target: string): [number, number] => {
+  const map: Record<string, [number, number]> = {
+    "public-ingress-01": [-77.0369, 38.9072], // Washington DC
+    "db-primary": [-0.1276, 51.5074],         // London
+    "auth-gateway": [13.4050, 52.5200],       // Berlin
+    "internal-api": [139.6917, 35.6895],      // Tokyo
+    "vpn-endpoint": [-122.4194, 37.7749],     // San Francisco
+  };
+  return map[target] || [0, 0];
+};
 
 // Severity config
 const severityConfig = {
@@ -155,16 +179,158 @@ function ThreatDrawer({ threat, onClose }: { threat: Threat | null; onClose: () 
 }
 
 export default function DashboardPage() {
-  const [threatList, setThreatList] = useState<Threat[]>(initialThreats);
+  const [threatList, setThreatList] = useState<Threat[]>([]);
   const [selectedThreat, setSelectedThreat] = useState<Threat | null>(null);
   const [playbookStates, setPlaybookStates] = useState<Record<string, "idle" | "loading" | "done">>({});
+  
+  // Stats state
+  const [stats, setStats] = useState({
+    criticalCount: 0,
+    activeAlerts: 0,
+    containedCount: 0,
+    avgResponse: "<1ms"
+  });
 
-  // Add new threat every 15 seconds
+  const [useMock, setUseMock] = useState(false);
+  
+  // Live Map State
+  const [liveOrigins, setLiveOrigins] = useState<AttackOrigin[]>([]);
+  const [liveTargets, setLiveTargets] = useState<AttackOrigin[]>([]);
+
+  // Initial load
   useEffect(() => {
-    const interval = setInterval(() => {
-      setThreatList((prev) => [generateNewThreat(), ...prev]);
-    }, 15000);
-    return () => clearInterval(interval);
+    const loadData = async () => {
+      try {
+        const [statsData, threatsData] = await Promise.all([
+          fetchDashboardStats(),
+          fetchThreats(1, 20)
+        ]);
+
+        if (threatsData.items && threatsData.items.length > 0) {
+          // Map backend threats to frontend model
+          const mappedThreats = threatsData.items.map((t: any) => ({
+            id: `THR-${t.id || Math.floor(Math.random() * 1000)}`,
+            name: t.threat_type || "Unknown Threat",
+            type: t.threat_type || "Anomaly",
+            severity: t.severity || "MEDIUM",
+            status: t.status === "INVESTIGATING" ? "Investigating" : 
+                    t.status === "CONTAINED" ? "Contained" : 
+                    t.status === "RESOLVED" ? "Contained" : "Active",
+            sourceIP: t.source_ip || "0.0.0.0",
+            targetSystem: t.target_system || "Unknown",
+            timestamp: t.timestamp ? new Date(t.timestamp.endsWith('Z') || t.timestamp.includes('+') ? t.timestamp : `${t.timestamp}Z`) : new Date(),
+            description: t.explanation ? `Anomaly Score: ${t.anomaly_score}` : `Automated detection of ${t.threat_type}`,
+            details: {
+              attackVector: t.threat_type,
+              indicators: ["Anomalous Traffic", "High Volume"],
+              affectedSystems: [t.target_system || "Unknown"],
+              recommendedAction: "Execute containment playbook.",
+              aiConfidence: t.confidence_score ? t.confidence_score * 100 : 90
+            }
+          }));
+          setThreatList(mappedThreats);
+          
+          // Populate initial map
+          const initOrigins: AttackOrigin[] = [];
+          const initTargets: AttackOrigin[] = [];
+          mappedThreats.forEach((t: Threat) => {
+             if (!initOrigins.find(o => o.name === t.sourceIP)) {
+                initOrigins.push({ name: t.sourceIP, coordinates: generateIpCoordinates(t.sourceIP), type: "origin", threats: 1 });
+             }
+             if (!initTargets.find(o => o.name === t.targetSystem)) {
+                initTargets.push({ name: t.targetSystem, coordinates: getTargetCoordinates(t.targetSystem), type: "target", threats: 1 });
+             }
+          });
+          setLiveOrigins(initOrigins);
+          setLiveTargets(initTargets);
+          
+        } else {
+          // If backend has no data, just show empty
+          setThreatList([]);
+        }
+
+        if (statsData) {
+          setStats({
+            criticalCount: statsData.critical_threats || 0,
+            activeAlerts: statsData.active_alerts || 0,
+            containedCount: statsData.threats_contained || 0,
+            avgResponse: statsData.avg_response_time ? `${statsData.avg_response_time}ms` : "<1ms"
+          });
+        }
+      } catch (err) {
+        console.warn("Backend API unavailable, showing empty state:", err);
+        setThreatList([]);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Use EventSource (SSE)
+  useEffect(() => {
+    // Connect to SSE stream
+    try {
+      const token = localStorage.getItem("platform_token") || "demo-token";
+      const evtSource = new EventSource(`${process.env.NEXT_PUBLIC_PLATFORM_API_URL || "http://11.12.6.240:8000"}/api/threats/stream?token=${token}`);
+      
+      evtSource.addEventListener("threat.created", (e) => {
+        try {
+          const t = JSON.parse((e as MessageEvent).data).payload;
+          const newThreat: Threat = {
+            id: `THR-${t.id || Math.floor(Math.random() * 1000)}`,
+            name: t.threat_type || "Anomaly",
+            type: t.threat_type || "Anomaly",
+            severity: t.severity || "MEDIUM",
+            status: "Active",
+            sourceIP: t.source_ip || "0.0.0.0",
+            targetSystem: t.target_system || "Unknown",
+            timestamp: t.timestamp ? new Date(t.timestamp.endsWith('Z') || t.timestamp.includes('+') ? t.timestamp : `${t.timestamp}Z`) : new Date(),
+            description: t.explanation ? `Live Threat Detection` : `Automated detection of ${t.threat_type}`,
+            details: {
+              attackVector: t.threat_type || "Anomaly",
+              indicators: ["Real-time Block"],
+              affectedSystems: [t.target_system || "Unknown"],
+              recommendedAction: "Review and isolate.",
+              aiConfidence: t.confidence_score ? t.confidence_score * 100 : 90
+            }
+          };
+          setThreatList(prev => [newThreat, ...prev]);
+          
+          // Increment active alerts natively when a new thread pops
+          setStats(prev => ({
+             ...prev, 
+             activeAlerts: prev.activeAlerts + 1,
+             criticalCount: t.severity === "CRITICAL" ? prev.criticalCount + 1 : prev.criticalCount
+          }));
+
+          // Add to map
+          setLiveOrigins(prev => {
+            if (prev.find(p => p.name === newThreat.sourceIP)) return prev;
+            return [...prev.slice(-15), { // Keep max 15 origins visible directly
+              name: newThreat.sourceIP,
+              coordinates: generateIpCoordinates(newThreat.sourceIP),
+              type: "origin",
+              threats: 1
+            }];
+          });
+          setLiveTargets(prev => {
+            if (prev.find(p => p.name === newThreat.targetSystem)) return prev;
+            return [...prev, {
+              name: newThreat.targetSystem,
+              coordinates: getTargetCoordinates(newThreat.targetSystem),
+              type: "target",
+              threats: 1
+            }];
+          });
+        } catch(err) {
+          console.error("Error parsing SSE data", err);
+        }
+      });
+
+      // Cleanup
+      return () => evtSource.close();
+    } catch(err) {
+      console.log("SSE streaming error");
+    }
   }, []);
 
   // Update timestamps
@@ -174,17 +340,27 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const executePlaybook = useCallback((id: string) => {
+  const executePlaybookTrigger = useCallback(async (id: string, playDbId: number = 1) => {
     setPlaybookStates((p) => ({ ...p, [id]: "loading" }));
+    if (!useMock && selectedThreat) {
+        try {
+            const rawId = selectedThreat.id.replace('THR-', '');
+            await apiExecutePlaybook(playDbId, rawId);
+        } catch(err) {
+            console.warn("Failed to execute real playbook", err);
+        }
+    }
+    
     setTimeout(() => {
       setPlaybookStates((p) => ({ ...p, [id]: "done" }));
       setTimeout(() => setPlaybookStates((p) => ({ ...p, [id]: "idle" })), 3000);
     }, 2000);
-  }, []);
+  }, [useMock, selectedThreat]);
 
-  const criticalCount = threatList.filter((t) => t.severity === "CRITICAL").length;
-  const activeAlerts = threatList.filter((t) => t.status === "Active" || t.status === "Investigating").length;
-  const containedCount = 847;
+  const criticalCount = stats.criticalCount;
+  const activeAlerts = stats.activeAlerts;
+  const containedCount = stats.containedCount;
+  const avgResponse = stats.avgResponse;
 
   return (
     <div className="space-y-6 fade-in">
@@ -193,7 +369,7 @@ export default function DashboardPage() {
         <StatCard icon={<AlertTriangle className="h-5 w-5" />} label="Critical Threats" value={String(criticalCount)} color="text-accent-red" glowClass="glow-red" />
         <StatCard icon={<Shield className="h-5 w-5" />} label="Active Alerts" value={String(activeAlerts)} color="text-accent-yellow" glowClass="glow-yellow" />
         <StatCard icon={<CheckCircle className="h-5 w-5" />} label="Threats Contained" value={String(containedCount)} color="text-accent-green" glowClass="glow-green" />
-        <StatCard icon={<Zap className="h-5 w-5" />} label="Avg Response Time" value="<1ms" color="text-accent-blue" glowClass="glow-blue" />
+        <StatCard icon={<Zap className="h-5 w-5" />} label="Avg Response Time" value={avgResponse} color="text-accent-blue" glowClass="glow-blue" />
       </div>
 
       {/* Main Grid */}
@@ -205,9 +381,16 @@ export default function DashboardPage() {
             <div className="w-2 h-2 rounded-full bg-accent-green animate-pulse-dot"></div>
           </div>
           <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-            {threatList.slice(0, 10).map((threat) => (
-              <ThreatCard key={threat.id} threat={threat} onClick={() => setSelectedThreat(threat)} />
-            ))}
+            {threatList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-muted opacity-50">
+                    <Shield className="h-10 w-10 mb-2" />
+                    <p>No active threats securely monitored.</p>
+                </div>
+            ) : (
+                threatList.slice(0, 10).map((threat) => (
+                    <ThreatCard key={threat.id} threat={threat} onClick={() => setSelectedThreat(threat)} />
+                ))
+            )}
           </div>
         </div>
 
@@ -215,7 +398,7 @@ export default function DashboardPage() {
         <div className="bg-surface rounded-xl border border-border p-5">
           <h3 className="text-lg font-semibold text-text mb-4" style={{ fontFamily: "var(--font-syne), sans-serif" }}>Global Attack Map</h3>
           <div className="rounded-lg overflow-hidden bg-surface2" style={{ height: 400 }}>
-            <AttackGlobe attackOrigins={attackOrigins} protectedTargets={protectedTargets} />
+            <AttackGlobe attackOrigins={liveOrigins} protectedTargets={liveTargets} />
           </div>
           <div className="flex items-center gap-6 mt-3 text-xs text-muted">
             <div className="flex items-center gap-2">
@@ -277,7 +460,7 @@ export default function DashboardPage() {
                   <h4 className="text-sm font-medium text-text mb-1">{pb.name}</h4>
                   <p className="text-xs text-muted mb-3">{pb.description}</p>
                   <button
-                    onClick={() => executePlaybook(pb.id)}
+                    onClick={() => executePlaybookTrigger(pb.id)}
                     disabled={state !== "idle"}
                     className={`w-full py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
                       state === "done"

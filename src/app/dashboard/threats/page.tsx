@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, ChevronLeft, ChevronRight, Eye, Play, AlertTriangle, X } from "lucide-react";
-import { threats as allThreats, type Threat } from "@/lib/mock-data";
+import { type Threat } from "@/lib/mock-data";
+import { fetchThreats, executePlaybook as apiExecutePlaybook } from "@/lib/api-client";
 
 const severityConfig = {
   CRITICAL: { color: "text-accent-red", bg: "bg-accent-red/10", rowBg: "bg-accent-red/[0.03]" },
@@ -23,12 +24,88 @@ function formatTime(date: Date) {
 }
 
 export default function ThreatsPage() {
+  const [allThreats, setAllThreats] = useState<Threat[]>([]);
   const [search, setSearch] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("All");
   const [page, setPage] = useState(1);
   const [selectedThreat, setSelectedThreat] = useState<Threat | null>(null);
   const [executingPlaybook, setExecutingPlaybook] = useState<string | null>(null);
   const perPage = 8;
+
+  // Initial load
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const threatsData = await fetchThreats(1, 100);
+
+        if (threatsData.items && threatsData.items.length > 0) {
+          const mappedThreats = threatsData.items.map((t: any) => ({
+            id: `THR-${t.id || Math.floor(Math.random() * 1000)}`,
+            name: t.threat_type || "Unknown Threat",
+            type: t.threat_type || "Anomaly",
+            severity: t.severity || "MEDIUM",
+            status: t.status === "INVESTIGATING" ? "Investigating" : 
+                    t.status === "CONTAINED" ? "Contained" : 
+                    t.status === "RESOLVED" ? "Contained" : "Active",
+            sourceIP: t.source_ip || "0.0.0.0",
+            targetSystem: t.target_system || "Unknown",
+            timestamp: t.timestamp ? new Date(t.timestamp.endsWith('Z') || t.timestamp.includes('+') ? t.timestamp : `${t.timestamp}Z`) : new Date(),
+            description: t.explanation ? `Anomaly Score: ${t.anomaly_score}` : `Automated detection of ${t.threat_type}`,
+            details: {
+              attackVector: t.threat_type,
+              indicators: ["Anomalous Traffic", "High Volume"],
+              affectedSystems: [t.target_system || "Unknown"],
+              recommendedAction: "Execute containment playbook.",
+              aiConfidence: t.confidence_score ? t.confidence_score * 100 : 90
+            }
+          }));
+          setAllThreats(mappedThreats);
+        }
+      } catch (err) {
+        console.warn("Backend API unavailable, showing empty state:", err);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Use EventSource (SSE)
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("platform_token") || "demo-token";
+      const evtSource = new EventSource(`${process.env.NEXT_PUBLIC_PLATFORM_API_URL || "http://11.12.6.240:8000"}/api/threats/stream?token=${token}`);
+      
+      evtSource.addEventListener("threat.created", (e) => {
+        try {
+          const t = JSON.parse((e as MessageEvent).data).payload;
+          const newThreat: Threat = {
+            id: `THR-${t.id || Math.floor(Math.random() * 1000)}`,
+            name: t.threat_type || "Anomaly",
+            type: t.threat_type || "Anomaly",
+            severity: t.severity || "MEDIUM",
+            status: "Active",
+            sourceIP: t.source_ip || "0.0.0.0",
+            targetSystem: t.target_system || "Unknown",
+            timestamp: t.timestamp ? new Date(t.timestamp.endsWith('Z') || t.timestamp.includes('+') ? t.timestamp : `${t.timestamp}Z`) : new Date(),
+            description: t.explanation ? `Live Threat Detection` : `Automated detection of ${t.threat_type}`,
+            details: {
+              attackVector: t.threat_type || "Anomaly",
+              indicators: ["Real-time Block"],
+              affectedSystems: [t.target_system || "Unknown"],
+              recommendedAction: "Review and isolate.",
+              aiConfidence: t.confidence_score ? t.confidence_score * 100 : 90
+            }
+          };
+          setAllThreats(prev => [newThreat, ...prev]);
+        } catch(err) {
+          console.error("Error parsing SSE data", err);
+        }
+      });
+
+      return () => evtSource.close();
+    } catch(err) {
+      console.log("SSE streaming error");
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     return allThreats.filter((t) => {
@@ -41,8 +118,14 @@ export default function ThreatsPage() {
   const totalPages = Math.ceil(filtered.length / perPage);
   const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
-  const executePlaybook = (threatId: string) => {
+  const executePlaybook = async (threatId: string) => {
     setExecutingPlaybook(threatId);
+    try {
+      const rawId = threatId.replace('THR-', '');
+      await apiExecutePlaybook(1, rawId);
+    } catch (err) {
+      console.warn("Failed to execute real playbook", err);
+    }
     setTimeout(() => setExecutingPlaybook(null), 2000);
   };
 

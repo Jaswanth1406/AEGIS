@@ -4,13 +4,6 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { AttackOrigin } from "@/lib/mock-data";
 
-type RouteDot = {
-  mesh: THREE.Mesh;
-  curve: THREE.QuadraticBezierCurve3;
-  t: number;
-  speed: number;
-};
-
 type PulseMesh = {
   mesh: THREE.Mesh;
   t: number;
@@ -40,7 +33,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function buildVectorMapTexture(image: HTMLImageElement | HTMLCanvasElement | ImageBitmap) {
+function buildDottedMapTexture(image: HTMLImageElement | HTMLCanvasElement | ImageBitmap) {
   const width = image.width;
   const height = image.height;
   const canvas = document.createElement("canvas");
@@ -54,27 +47,34 @@ function buildVectorMapTexture(image: HTMLImageElement | HTMLCanvasElement | Ima
   const imageData = context.getImageData(0, 0, width, height);
   const data = imageData.data;
 
-  for (let i = 0; i < data.length; i += 4) {
-    // The specular map separates land (black/dark) from water (white/bright)
-    const isOcean = data[i] > 128;
-    if (isOcean) {
-      // Vivid elegant cyan/blue
-      data[i] = 18;
-      data[i + 1] = 144;
-      data[i + 2] = 204;
-    } else {
-      // Flat light grey/white for continents
-      data[i] = 240;
-      data[i + 1] = 240;
-      data[i + 2] = 240;
+  // Clear canvas to a deep dark space background
+  context.fillStyle = "#010308";
+  context.fillRect(0, 0, width, height);
+
+  // Set dot color mapping styles
+  context.fillStyle = "#4895ff";
+
+  const step = 3;
+  const dotSize = 0.9; // radius
+
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const i = (y * width + x) * 4;
+      // In specular map, land is dark/black (< 128)
+      const isLand = data[i] < 128;
+      
+      if (isLand) {
+        context.globalAlpha = 0.6 + Math.random() * 0.4;
+        context.beginPath();
+        context.arc(x, y, dotSize, 0, 2 * Math.PI);
+        context.fill();
+      }
     }
   }
 
-  context.putImageData(imageData, 0, 0);
-
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4; // Makes the texture sharper from grazing camera angles
+  texture.anisotropy = 4;
   texture.needsUpdate = true;
 
   return texture;
@@ -92,7 +92,7 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
     const scene = new THREE.Scene();
 
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-    camera.position.set(0, 0, 4.8);
+    camera.position.set(0, 0, 3.2);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -123,14 +123,25 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
     const globeRadius = 1.05;
 
     // A single, perfect sphere acting as our solid graphic globe
-    const earthGeometry = new THREE.SphereGeometry(globeRadius, 72, 72);
-    const earthMaterial = new THREE.MeshStandardMaterial({
+    const earthGeometry = new THREE.SphereGeometry(globeRadius, 128, 128);
+    // Since we've pre-baked the aesthetics entirely into the procedural dots on the canvas,
+    // we just need it to emit flatly.
+    const earthMaterial = new THREE.MeshBasicMaterial({
       color: 0xffffff,
-      roughness: 0.8,
-      metalness: 0.1,
     });
     const earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
     globeGroup.add(earthMesh);
+
+    // Network wireframe overlay for that cyber look
+    const wireframeGeometry = new THREE.IcosahedronGeometry(globeRadius + 0.005, 18);
+    const wireframeMaterial = new THREE.MeshBasicMaterial({
+      color: 0x4895ff,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.1,
+    });
+    const wireframeMesh = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
+    globeGroup.add(wireframeMesh);
 
     const textureLoader = new THREE.TextureLoader();
     textureLoader.setCrossOrigin("anonymous");
@@ -138,7 +149,7 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
       EARTH_SPECULAR_URL,
       (loadedTexture) => {
         const sourceImage = loadedTexture.image as HTMLImageElement | HTMLCanvasElement | ImageBitmap;
-        const colorTexture = buildVectorMapTexture(sourceImage);
+        const colorTexture = buildDottedMapTexture(sourceImage);
         
         if (colorTexture) {
           loadedTexture.dispose();
@@ -172,20 +183,6 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
       const markerPosition = latLonToVector3(lon, lat, globeRadius + 0.005);
       
       const normal = markerPosition.clone().normalize();
-      const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-
-      // Vertical pointer / pole
-      const poleGeometry = new THREE.CylinderGeometry(0.003, 0.003, 0.2, 8);
-      poleGeometry.translate(0, 0.1, 0); // shift up so origin is at the surface
-      const poleMaterial = new THREE.MeshBasicMaterial({
-        color: options.color,
-        transparent: true,
-        opacity: 0.8
-      });
-      const poleMesh = new THREE.Mesh(poleGeometry, poleMaterial);
-      poleMesh.position.copy(markerPosition);
-      poleMesh.quaternion.copy(quaternion);
-      markerGroup.add(poleMesh);
 
       // Rings
       const numRings = options.isTarget ? 3 : 2;

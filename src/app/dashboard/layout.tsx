@@ -8,6 +8,7 @@ import {
   Bell,
   BookOpen,
   ChevronDown,
+  FileText,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -23,6 +24,7 @@ const navLinks = [
   { label: "Threats", href: "/dashboard/threats", icon: AlertTriangle },
   { label: "Playbooks", href: "/dashboard/playbooks", icon: BookOpen },
   { label: "Honeytokens", href: "/dashboard/honeytokens", icon: KeyRound },
+  { label: "Compliance", href: "/dashboard/compliance", icon: FileText },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 

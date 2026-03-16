@@ -10,6 +10,7 @@ export default function SettingsPage() {
   const { theme, resolvedTheme, setTheme } = useTheme();
   
   const [mounted, setMounted] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   
@@ -31,7 +32,7 @@ export default function SettingsPage() {
   // Sync session data when it loads
   useEffect(() => {
     setMounted(true);
-    if (session?.user) {
+    if (session?.user && !dataLoaded) {
       setSettings(s => ({
         ...s,
         name: session.user.name || "Unknown User",
@@ -50,11 +51,12 @@ export default function SettingsPage() {
                if (data.darkMode !== undefined) {
                  setTheme(data.darkMode ? "dark" : "light");
                }
+               setDataLoaded(true);
             }
         })
         .catch(console.error);
     }
-  }, [session, setTheme]); // Run once on mount
+  }, [session, setTheme, dataLoaded]);
 
   // Handle local dark mode toggle
   const toggleDarkMode = () => {

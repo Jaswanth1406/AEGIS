@@ -1,0 +1,32 @@
+[
+    {
+        "id": 1001,
+        "source_lat": 34.0522,
+        "source_lng": -118.2437,
+        "target_lat": 40.7128,
+        "target_lng": -74.0060,
+        "source_ip": "192.168.1.50",
+        "target_system": "Database-US-East",
+        "severity": "CRITICAL"
+    },
+    {
+        "id": 1002,
+        "source_lat": 51.5074,
+        "source_lng": -0.1278,
+        "target_lat": 48.8566,
+        "target_lng": 2.3522,
+        "source_ip": "10.0.0.15",
+        "target_system": "Auth-Server-EU",
+        "severity": "HIGH"
+    },
+    {
+        "id": 1003,
+        "source_lat": 35.6895,
+        "source_lng": 139.6917,
+        "target_lat": 37.7749,
+        "target_lng": -122.4194,
+        "source_ip": "172.16.254.1",
+        "target_system": "Web-DMZ-01",
+        "severity": "MEDIUM"
+    }
+]

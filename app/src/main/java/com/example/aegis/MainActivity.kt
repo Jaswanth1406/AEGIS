@@ -1,0 +1,286 @@
+package com.example.aegis
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.example.aegis.data.api.ApiClient
+import com.example.aegis.ui.dashboard.DashboardScreen
+import com.example.aegis.ui.intro.IntroScreen
+import com.example.aegis.ui.settings.SettingsScreen
+import com.example.aegis.ui.theme.*
+import com.example.aegis.ui.threats.ThreatDetailScreen
+import com.example.aegis.ui.threats.ThreatsListScreen
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        ApiClient.init()
+        enableEdgeToEdge()
+        setContent {
+            var isDarkTheme by rememberSaveable { mutableStateOf(true) }
+
+            AEGISTheme(darkTheme = isDarkTheme) {
+                AegisApp(
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = { isDarkTheme = !isDarkTheme }
+                )
+            }
+        }
+    }
+}
+
+// Bottom Nav Items
+data class BottomNavItem(val route: String, val label: String, val icon: ImageVector, val index: Int)
+
+val bottomNavItems = listOf(
+    BottomNavItem("main_dashboard", "Dashboard", Icons.Default.Dashboard, 0),
+    BottomNavItem("main_threats", "Threats", Icons.Default.Security, 1),
+    BottomNavItem("main_settings", "Settings", Icons.Default.Settings, 2),
+)
+
+@Composable
+fun AegisApp(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val cyber = LocalCyberColors.current
+
+    // Track previous tab index for directional slide
+    var previousTabIndex by remember { mutableIntStateOf(0) }
+    val currentTabIndex = bottomNavItems.find { it.route == currentRoute }?.index ?: previousTabIndex
+
+    val showBottomBar = currentRoute in bottomNavItems.map { it.route }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            if (showBottomBar) {
+                CyberBottomBar(
+                    currentRoute = currentRoute,
+                    onItemClick = { route ->
+                        previousTabIndex = currentTabIndex
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = "intro",
+            modifier = Modifier.padding(
+                bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else 0.dp
+            )
+        ) {
+            // ── Intro (splash) ──
+            composable(
+                "intro",
+                exitTransition = {
+                    fadeOut(animationSpec = tween(600)) +
+                    scaleOut(targetScale = 1.1f, animationSpec = tween(600))
+                }
+            ) {
+                IntroScreen(
+                    onGetStartedClick = {
+                        navController.navigate("main_dashboard") {
+                            popUpTo("intro") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // ── Dashboard Tab ──
+            composable(
+                "main_dashboard",
+                enterTransition = {
+                    val fromIntro = initialState.destination.route == "intro"
+                    if (fromIntro) {
+                        fadeIn(animationSpec = tween(700)) +
+                        scaleIn(initialScale = 0.92f, animationSpec = tween(700))
+                    } else {
+                        slideInHorizontally(
+                            initialOffsetX = { if (currentTabIndex > previousTabIndex) it else -it },
+                            animationSpec = tween(350)
+                        ) + fadeIn(animationSpec = tween(350))
+                    }
+                },
+                exitTransition = {
+                    val toDetail = targetState.destination.route?.startsWith("threat_detail") == true
+                    if (toDetail) {
+                        fadeOut(animationSpec = tween(300))
+                    } else {
+                        slideOutHorizontally(
+                            targetOffsetX = { if (currentTabIndex > previousTabIndex) -it else it },
+                            animationSpec = tween(350)
+                        ) + fadeOut(animationSpec = tween(350))
+                    }
+                }
+            ) {
+                DashboardScreen(
+                    onNavigateToThreat = { threatId ->
+                        navController.navigate("threat_detail/$threatId")
+                    }
+                )
+            }
+
+            // ── Threats Tab ──
+            composable(
+                "main_threats",
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { if (currentTabIndex > previousTabIndex) it else -it },
+                        animationSpec = tween(350)
+                    ) + fadeIn(animationSpec = tween(350))
+                },
+                exitTransition = {
+                    val toDetail = targetState.destination.route?.startsWith("threat_detail") == true
+                    if (toDetail) {
+                        fadeOut(animationSpec = tween(300))
+                    } else {
+                        slideOutHorizontally(
+                            targetOffsetX = { if (currentTabIndex > previousTabIndex) -it else it },
+                            animationSpec = tween(350)
+                        ) + fadeOut(animationSpec = tween(350))
+                    }
+                }
+            ) {
+                ThreatsListScreen(
+                    onThreatClick = { threatId ->
+                        navController.navigate("threat_detail/$threatId")
+                    }
+                )
+            }
+
+            // ── Settings Tab ──
+            composable(
+                "main_settings",
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { if (currentTabIndex > previousTabIndex) it else -it },
+                        animationSpec = tween(350)
+                    ) + fadeIn(animationSpec = tween(350))
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { if (currentTabIndex > previousTabIndex) -it else it },
+                        animationSpec = tween(350)
+                    ) + fadeOut(animationSpec = tween(350))
+                }
+            ) {
+                SettingsScreen(
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme
+                )
+            }
+
+            // ── Threat Detail (slides up from bottom) ──
+            composable(
+                "threat_detail/{threatId}",
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ) + fadeIn(animationSpec = tween(400))
+                },
+                exitTransition = {
+                    slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = tween(350)
+                    ) + fadeOut(animationSpec = tween(300))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(300))
+                },
+                popExitTransition = {
+                    slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = tween(350)
+                    ) + fadeOut(animationSpec = tween(300))
+                }
+            ) { backStackEntry ->
+                val threatId = backStackEntry.arguments?.getString("threatId")?.toIntOrNull() ?: 0
+                ThreatDetailScreen(
+                    threatId = threatId,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CyberBottomBar(currentRoute: String?, onItemClick: (String) -> Unit) {
+    val cyber = LocalCyberColors.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(cyber.cardBackground)
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            bottomNavItems.forEach { item ->
+                val isSelected = currentRoute == item.route
+                val bgColor = if (isSelected) cyber.neonCyan.copy(alpha = 0.15f) else Color.Transparent
+                val contentColor = if (isSelected) cyber.neonCyan else cyber.textSecondary
+
+                IconButton(
+                    onClick = { onItemClick(item.route) },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(bgColor)
+                        .weight(1f)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(item.icon, contentDescription = item.label, tint = contentColor, modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(item.label, fontSize = 10.sp, color = contentColor, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+            }
+        }
+    }
+}

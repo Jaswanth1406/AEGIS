@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>CyberShield Globe</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#0d1117;touch-action:none}
+#globeViz{width:100vw;height:100vh}
+
+#tooltip{
+  position:fixed;display:none;z-index:100;
+  background:rgba(13,17,23,0.94);border:1px solid #00f7ff;
+  border-radius:12px;padding:12px 16px;pointer-events:none;
+  font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;
+  color:#e6edf3;max-width:240px;
+  box-shadow:0 0 20px rgba(0,247,255,0.2),0 0 60px rgba(0,247,255,0.08);
+}
+#tooltip .role{color:#8b949e;font-size:11px;margin-bottom:2px}
+#tooltip .ip{color:#00f7ff;font-weight:bold;font-size:15px}
+#tooltip .row{margin-top:4px}
+#tooltip .lbl{color:#6b7394;font-size:11px}
+#tooltip .sev{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold;margin-top:6px}
+#tooltip .hint{color:#6b7394;font-size:10px;margin-top:8px;border-top:1px solid #2d3548;padding-top:6px}
+</style>
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/globe.gl@2.27.2"></script>
+</head>
+<body>
+<div id="globeViz"></div>
+<div id="tooltip"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  SEVERITY COLOR MAP
+// ═══════════════════════════════════════════
+const sevColors = {
+  CRITICAL: '#ff0040',
+  HIGH:     '#ff3366',
+  MEDIUM:   '#ffdd00',
+  LOW:      '#00ff88'
+};
+const defaultColor = '#3570e8';
+
+function getSevColor(s) {
+  return sevColors[(s||'').toUpperCase()] || defaultColor;
+}
+
+const cyanGlow  = '#00f7ff';
+const deepBlue  = '#0066ff';
+
+// ═══════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════
+let arcsData  = [];
+let ringsData = [];
+let attackRegistry = [];
+
+// ═══════════════════════════════════════════
+//  GLOBE — original night-map style
+// ═══════════════════════════════════════════
+const world = Globe()
+  (document.getElementById('globeViz'))
+  .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
+  .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+  .backgroundColor('#0d1117')
+  .showAtmosphere(true)
+  .atmosphereColor(deepBlue)
+  .atmosphereAltitude(0.22)
+  .pointOfView({ lat: 20.5937, lng: 78.9629, altitude: 2.0 }, 0);
+
+const gMat = world.globeMaterial();
+gMat.shininess = 20;
+gMat.specular = new THREE.Color(0x333333); // Neutral dark grey specular reflection (no violet/blue)
+
+// ═══════════════════════════════════════════
+//  CONTROLS — smooth 360° rotation
+// ═══════════════════════════════════════════
+const controls = world.controls();
+controls.autoRotate      = true;
+controls.autoRotateSpeed = 0.5;
+controls.enableZoom      = true;
+controls.zoomSpeed       = 0.8;
+controls.enableDamping   = true;
+controls.dampingFactor   = 0.1;
+controls.rotateSpeed     = 0.5;
+controls.enablePan       = false;
+controls.minDistance      = 120;
+controls.maxDistance      = 500;
+controls.minPolarAngle   = 0;
+controls.maxPolarAngle   = Math.PI;
+
+// ═══════════════════════════════════════════
+//  ARCS & RINGS — THIN arcs, SMALL waves
+// ═══════════════════════════════════════════
+world
+  .arcsData(arcsData)
+  .arcColor('color')
+  .arcDashLength(1)
+  .arcDashGap(0)
+  .arcDashAnimateTime(0)
+  .arcStroke('stroke')
+  .arcAltitudeAutoScale(0.3)
+  .ringsData(ringsData)
+  .ringColor('color')
+  .ringMaxRadius('maxR')
+  .ringPropagationSpeed('propagationSpeed')
+  .ringRepeatPeriod('repeatPeriod');
+
+// ═══════════════════════════════════════════
+//  TOOLTIP
+// ═══════════════════════════════════════════
+const tooltip = document.getElementById('tooltip');
+
+function showTooltip(x, y, a) {
+  const ip = a.role==='SOURCE' ? a.sourceIp : a.targetSystem;
+  const c = getSevColor(a.severity);
+  tooltip.innerHTML =
+    '<div class="role">'+(a.role==='SOURCE'?'🔴 Attacker (FROM)':'🛡️ Target (TO)')+'</div>'+
+    '<div class="ip">'+(ip||'Unknown')+'</div>'+
+    '<div class="row"><span class="lbl">Source IP: </span><span style="color:#ff3366">'+(a.sourceIp||'?')+'</span></div>'+
+    '<div class="row"><span class="lbl">Target: </span><span style="color:#00f7ff">'+(a.targetSystem||'?')+'</span></div>'+
+    '<div><span class="sev" style="background:'+c+'33;color:'+c+'">'+(a.severity||'—')+'</span></div>'+
+    '<div class="hint">Tap again to view full details →</div>';
+  tooltip.style.left = Math.min(x+12, innerWidth-250)+'px';
+  tooltip.style.top  = Math.min(y-80, innerHeight-220)+'px';
+  tooltip.style.display = 'block';
+}
+function hideTooltip(){ tooltip.style.display='none'; }
+
+// ═══════════════════════════════════════════
+//  TAP on globe / arc
+// ═══════════════════════════════════════════
+let tapTarget = null;
+
+function findNearestAttack(lat, lng) {
+  let nearest = null, minD = Infinity;
+  attackRegistry.forEach(a => {
+    const dS = Math.sqrt((a.srcLat-lat)**2+(a.srcLng-lng)**2);
+    if(dS<minD){minD=dS; nearest={...a,role:'SOURCE'};}
+    const dT = Math.sqrt((a.tgtLat-lat)**2+(a.tgtLng-lng)**2);
+    if(dT<minD){minD=dT; nearest={...a,role:'TARGET'};}
+  });
+  return (nearest && minD < 18) ? nearest : null;
+}
+
+world.onGlobeClick(function(coords, event) {
+  if (!coords) { hideTooltip(); tapTarget=null; return; }
+  const attack = findNearestAttack(coords.lat, coords.lng);
+  if (attack) {
+    if (tapTarget && tapTarget.threatId === attack.threatId) {
+      hideTooltip(); tapTarget = null;
+      if (attack.threatId && window.AndroidBridge) {
+        window.AndroidBridge.onThreatLongPress(attack.threatId);
+      }
+    } else {
+      tapTarget = attack;
+      showTooltip(event.clientX||100, event.clientY||100, attack);
+    }
+  } else { hideTooltip(); tapTarget = null; }
+});
+
+world.onArcClick(function(arc, event) {
+  const a = attackRegistry.find(r =>
+    r.srcLat===arc.startLat && r.srcLng===arc.startLng &&
+    r.tgtLat===arc.endLat   && r.tgtLng===arc.endLng
+  );
+  if (a) {
+    if (tapTarget && tapTarget.threatId === a.threatId) {
+      hideTooltip(); tapTarget = null;
+      if (a.threatId && window.AndroidBridge) {
+        window.AndroidBridge.onThreatLongPress(a.threatId);
+      }
+    } else {
+      tapTarget = {...a, role:'SOURCE'};
+      showTooltip(event.clientX||100, event.clientY||100, tapTarget);
+    }
+  }
+});
+
+// ═══════════════════════════════════════════
+//  INJECT — severity-colored arcs & waves
+// ═══════════════════════════════════════════
+window.injectAttack = function(srcLat, srcLng, tgtLat, tgtLng, sourceIp, targetSystem, severity, threatId) {
+  const sColor = getSevColor(severity);
+
+  // Very thin continuous arc — severity colored
+  const newArc = {
+    startLat: srcLat, startLng: srcLng,
+    endLat: tgtLat,   endLng: tgtLng,
+    color: [sColor, cyanGlow],
+    stroke: 0.3
+  };
+
+  // SMALL target ring
+  const tgtRing = {
+    lat: tgtLat, lng: tgtLng,
+    color: cyanGlow,
+    maxR: 3,             // ← SMALL wave
+    propagationSpeed: 1.2,
+    repeatPeriod: 1200
+  };
+
+  // SMALL source ring — severity colored
+  const srcRing = {
+    lat: srcLat, lng: srcLng,
+    color: sColor,
+    maxR: 2,             // ← SMALL wave
+    propagationSpeed: 1.0,
+    repeatPeriod: 1500
+  };
+
+  arcsData = [...arcsData, newArc];
+  if(arcsData.length > 100) arcsData.shift();
+
+  ringsData = [...ringsData, tgtRing, srcRing];
+  if(ringsData.length > 200) ringsData.splice(0,2);
+
+  attackRegistry.push({
+    srcLat, srcLng, tgtLat, tgtLng,
+    sourceIp: sourceIp||null,
+    targetSystem: targetSystem||null,
+    severity: severity||null,
+    threatId: threatId||null
+  });
+  if(attackRegistry.length > 100) attackRegistry.shift();
+
+  world.arcsData(arcsData);
+  world.ringsData(ringsData);
+};
+
+window.addEventListener('resize', function() {
+  world.width(innerWidth);
+  world.height(innerHeight);
+});
+</script>
+</body>
+</html>

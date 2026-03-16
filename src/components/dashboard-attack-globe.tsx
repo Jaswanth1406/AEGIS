@@ -23,6 +23,7 @@ type AttackGlobeProps = {
   protectedTargets: AttackOrigin[];
   activeThreats?: Threat[];
   onThreatClick?: (threat: Threat) => void;
+  onLocationClick?: (loc: { name: string; type: "Origin" | "Target" }) => void;
 };
 
 const EARTH_SPECULAR_URL = "https://threejs.org/examples/textures/planets/earth_specular_2048.jpg";
@@ -100,7 +101,13 @@ function buildDottedMapTexture(image: HTMLImageElement | HTMLCanvasElement | Ima
   return texture;
 }
 
-export default function AttackGlobe({ attackOrigins, protectedTargets, activeThreats = [], onThreatClick }: AttackGlobeProps) {
+export default function AttackGlobe({
+  attackOrigins,
+  protectedTargets,
+  activeThreats = [],
+  onThreatClick,
+  onLocationClick,
+}: AttackGlobeProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; name: string; type: string } | null>(null);
 

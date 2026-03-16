@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Shield, Eye, EyeOff, Mail, Lock, AlertCircle, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2, Shield } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
 
 export default function LoginPage() {
@@ -49,49 +49,38 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-navy flex items-center justify-center relative overflow-hidden">
-      {/* Particle Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {Array.from({ length: 20 }, (_, i) => (
-          <div
-            key={i}
-            className="particle"
-            style={{
-              left: `${(i * 37 + 13) % 100}%`,
-              animationDuration: `${8 + ((i * 7 + 3) % 12)}s`,
-              animationDelay: `${(i * 5 + 2) % 8}s`,
-              width: `${1 + ((i * 3) % 3)}px`,
-              height: `${1 + ((i * 3) % 3)}px`,
-            }}
-          />
-        ))}
-      </div>
+    <div className="min-h-screen bg-bg flex items-center justify-center relative overflow-hidden grid-bg">
+      {/* Floating Orbs */}
+      <div className="orb orb-green" style={{ width: 400, height: 400, top: -100, right: -100 }} />
+      <div className="orb orb-blue" style={{ width: 300, height: 300, bottom: 100, left: -50 }} />
 
       {/* Minimal Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-navy/80 backdrop-blur-xl border-b border-border">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-surface/80 header-blur border-b border-border">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center">
           <Link href="/" className="flex items-center gap-2">
-            <Shield className="h-8 w-8 text-teal" />
-            <span className="text-xl font-bold text-white">AEGIS AI</span>
+            <div className="w-8 h-8 rounded-lg bg-accent-green flex items-center justify-center">
+              <Shield className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-xl font-bold text-text" style={{ fontFamily: "var(--font-syne), sans-serif" }}>AEGIS AI</span>
           </Link>
         </div>
       </nav>
 
       {/* Login Card */}
-      <div className="relative z-10 w-full max-w-md px-4 animate-fade-in-up">
-        <div className="glass-card p-8 rounded-2xl shadow-2xl">
+      <div className="relative z-10 w-full max-w-md px-4 fade-in">
+        <div className="bg-surface p-8 rounded-2xl border border-border shadow-xl">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-teal/10 flex items-center justify-center mx-auto mb-4">
-              <Shield className="h-9 w-9 text-teal" />
+            <div className="w-16 h-16 rounded-2xl bg-accent-green/10 flex items-center justify-center mx-auto mb-4">
+              <Shield className="h-9 w-9 text-accent-green" />
             </div>
-            <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
-            <p className="text-text-muted text-sm mt-1">Autonomous Cyber-Immune Platform</p>
+            <h1 className="text-2xl font-bold text-text" style={{ fontFamily: "var(--font-syne), sans-serif" }}>Welcome Back</h1>
+            <p className="text-muted text-sm mt-1">Autonomous Cyber-Immune Platform</p>
           </div>
 
           {/* General Error */}
           {errors.general && (
-            <div className="mb-4 p-3 rounded-lg bg-critical/10 border border-critical/30 flex items-center gap-2 text-sm text-critical animate-slide-down">
+            <div className="mb-4 p-3 rounded-lg bg-accent-red/10 border border-accent-red/30 flex items-center gap-2 text-sm text-accent-red animate-slide-down">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {errors.general}
             </div>
@@ -100,7 +89,7 @@ export default function LoginPage() {
           {/* Google Sign In */}
           <button
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white text-gray-800 font-medium rounded-xl hover:bg-gray-100 transition-all mb-6"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-surface2 text-text font-medium rounded-xl hover:bg-border/50 transition-all mb-6 border border-border"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -117,7 +106,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-border"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-card text-text-muted">or continue with email</span>
+              <span className="px-3 bg-surface text-muted">or continue with email</span>
             </div>
           </div>
 
@@ -125,56 +114,56 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${errors.email ? "border-critical bg-critical/5" : "border-border bg-navy/50"} focus-within:border-teal transition-colors`}>
-                <Mail className="h-5 w-5 text-text-muted" />
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${errors.email ? "border-accent-red bg-accent-red/5" : "border-border bg-surface2"} focus-within:border-accent-green transition-colors`}>
+                <Mail className="h-5 w-5 text-muted" />
                 <input
                   type="email"
                   placeholder="Email address"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: undefined })); }}
-                  className="flex-1 bg-transparent text-text-primary placeholder-text-muted outline-none text-sm"
+                  className="flex-1 bg-transparent text-text placeholder-muted outline-none text-sm"
                 />
               </div>
-              {errors.email && <p className="text-critical text-xs mt-1.5 ml-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.email}</p>}
+              {errors.email && <p className="text-accent-red text-xs mt-1.5 ml-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.email}</p>}
             </div>
 
             {/* Password */}
             <div>
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${errors.password ? "border-critical bg-critical/5" : "border-border bg-navy/50"} focus-within:border-teal transition-colors`}>
-                <Lock className="h-5 w-5 text-text-muted" />
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${errors.password ? "border-accent-red bg-accent-red/5" : "border-border bg-surface2"} focus-within:border-accent-green transition-colors`}>
+                <Lock className="h-5 w-5 text-muted" />
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: undefined })); }}
-                  className="flex-1 bg-transparent text-text-primary placeholder-text-muted outline-none text-sm"
+                  className="flex-1 bg-transparent text-text placeholder-muted outline-none text-sm"
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-text-muted hover:text-teal transition-colors">
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-muted hover:text-accent-green transition-colors">
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              {errors.password && <p className="text-critical text-xs mt-1.5 ml-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.password}</p>}
+              {errors.password && <p className="text-accent-red text-xs mt-1.5 ml-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.password}</p>}
             </div>
 
             {/* Forgot Password */}
             <div className="text-right">
-              <a href="#" className="text-sm text-teal hover:underline">Forgot password?</a>
+              <a href="#" className="text-sm text-accent-green hover:underline">Forgot password?</a>
             </div>
 
             {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-teal text-white font-semibold rounded-xl hover:bg-teal/80 transition-all shadow-lg shadow-teal/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 bg-accent-green text-white font-semibold rounded-xl hover:bg-accent-green/90 transition-all shadow-lg shadow-accent-green/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? <><Loader2 className="h-5 w-5 animate-spin" /> Signing in...</> : "Sign In"}
             </button>
           </form>
 
           {/* Register Link */}
-          <p className="text-center text-sm text-text-muted mt-6">
+          <p className="text-center text-sm text-muted mt-6">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-teal hover:underline font-medium">Register</Link>
+            <Link href="/register" className="text-accent-green hover:underline font-medium">Register</Link>
           </p>
         </div>
       </div>

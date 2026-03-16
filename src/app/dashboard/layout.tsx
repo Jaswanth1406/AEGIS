@@ -23,15 +23,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="min-h-screen bg-navy">
+    <div className="min-h-screen bg-bg">
       {/* Dashboard Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-b border-border">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-surface/95 header-blur border-b border-border">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/dashboard" className="flex items-center gap-2">
-              <Shield className="h-7 w-7 text-teal" />
-              <span className="text-lg font-bold text-white hidden sm:block">AEGIS AI</span>
+              <div className="w-7 h-7 rounded-lg bg-accent-green flex items-center justify-center">
+                <Shield className="h-3.5 w-3.5 text-white" />
+              </div>
+              <span className="text-lg font-bold text-text hidden sm:block" style={{ fontFamily: "var(--font-syne), sans-serif" }}>AEGIS AI</span>
             </Link>
 
             {/* Nav Links */}
@@ -44,8 +46,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     href={link.href}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                       isActive
-                        ? "bg-teal/10 text-teal"
-                        : "text-text-muted hover:text-text-primary hover:bg-white/5"
+                        ? "bg-accent-green/10 text-accent-green"
+                        : "text-muted hover:text-text hover:bg-surface2"
                     }`}
                   >
                     <link.icon className="h-4 w-4" />
@@ -58,33 +60,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Right Side */}
             <div className="flex items-center gap-4">
               {/* LIVE Indicator */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-critical/10 border border-critical/30">
-                <div className="w-2 h-2 rounded-full bg-critical animate-pulse-glow"></div>
-                <span className="text-xs font-semibold text-critical">LIVE</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-green/10 border border-accent-green/30">
+                <div className="w-2 h-2 rounded-full bg-accent-green pulse-live"></div>
+                <span className="text-xs font-semibold text-accent-green" style={{ fontFamily: "var(--font-space-mono), monospace" }}>LIVE</span>
               </div>
 
               {/* User Menu */}
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-surface2 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-teal/20 flex items-center justify-center">
-                    <User className="h-4 w-4 text-teal" />
+                  <div className="w-8 h-8 rounded-full bg-accent-green/20 flex items-center justify-center">
+                    <User className="h-4 w-4 text-accent-green" />
                   </div>
-                  <span className="text-sm text-text-primary hidden sm:block">Alex Morgan</span>
-                  <ChevronDown className="h-4 w-4 text-text-muted" />
+                  <span className="text-sm text-text hidden sm:block">Alex Morgan</span>
+                  <ChevronDown className="h-4 w-4 text-muted" />
                 </button>
                 {userMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl shadow-navy/50 py-2 animate-slide-down">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-surface border border-border rounded-xl shadow-xl py-2 animate-slide-down">
                     <div className="px-4 py-2 border-b border-border">
-                      <p className="text-sm font-medium text-white">Alex Morgan</p>
-                      <p className="text-xs text-text-muted">alex.morgan@aegis-ai.com</p>
+                      <p className="text-sm font-medium text-text">Alex Morgan</p>
+                      <p className="text-xs text-muted">alex.morgan@aegis-ai.com</p>
                     </div>
-                    <Link href="/dashboard/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-text-muted hover:text-teal hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>
+                    <Link href="/dashboard/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-muted hover:text-accent-green hover:bg-surface2 transition-colors" onClick={() => setUserMenuOpen(false)}>
                       <Settings className="h-4 w-4" /> Settings
                     </Link>
-                    <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-critical hover:bg-critical/10 transition-colors">
+                    <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-accent-red hover:bg-accent-red/5 transition-colors">
                       <LogOut className="h-4 w-4" /> Logout
                     </button>
                   </div>

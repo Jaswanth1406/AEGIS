@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# datasets (large CSV files)
+/datasets/
+
+# python backend
+/backend/venv/
+/backend/saved_models/
+/backend/__pycache__/
+/backend/**/__pycache__/
+*.pyc

@@ -6,14 +6,12 @@ import retrofit2.http.*
 
 interface AegisApi {
 
-    // ─── Dashboard ───
     @GET("api/dashboard/stats")
     suspend fun getDashboardStats(): Response<DashboardStats>
 
     @GET("api/attacks/global")
     suspend fun getGlobalAttacks(): Response<List<AttackGlobal>>
 
-    // ─── Threats ───
     @GET("api/threats")
     suspend fun getThreats(
         @Query("page") page: Int = 1,
@@ -31,9 +29,20 @@ interface AegisApi {
         @Body body: StatusUpdateRequest
     ): Response<ThreatItem>
 
-    // ─── Playbooks ───
     @GET("api/playbooks")
     suspend fun getPlaybooks(): Response<List<Playbook>>
+
+    @GET("api/playbooks/{id}")
+    suspend fun getPlaybook(@Path("id") id: Int): Response<Playbook>
+
+    @POST("api/playbooks")
+    suspend fun createPlaybook(@Body body: PlaybookCreateRequest): Response<Playbook>
+
+    @PUT("api/playbooks/{id}")
+    suspend fun updatePlaybook(
+        @Path("id") id: Int,
+        @Body body: PlaybookUpdateRequest
+    ): Response<Playbook>
 
     @POST("api/playbooks/{id}/execute")
     suspend fun executePlaybook(
@@ -44,7 +53,6 @@ interface AegisApi {
     @GET("api/playbooks/logs")
     suspend fun getPlaybookLogs(): Response<List<PlaybookLog>>
 
-    // ─── Settings ───
     @GET("api/settings")
     suspend fun getSettings(): Response<SettingsData>
 

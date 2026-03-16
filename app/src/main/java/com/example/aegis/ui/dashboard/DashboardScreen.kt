@@ -179,7 +179,8 @@ fun DashboardScreen(onNavigateToThreat: ((Int) -> Unit)? = null) {
             LegendDot("Critical", Color(0xFFFF0040))
             LegendDot("High", Color(0xFFFF3366))
             LegendDot("Medium", Color(0xFFFFDD00))
-            LegendDot("Low", Color(0xFF00FF88))
+            LegendDot("Low", Color(
+                0xFF00FF88))
         }
 
         Spacer(modifier = Modifier.height(20.dp))

@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -35,6 +36,9 @@ import androidx.navigation.compose.rememberNavController
 import com.example.aegis.data.api.ApiClient
 import com.example.aegis.ui.dashboard.DashboardScreen
 import com.example.aegis.ui.intro.IntroScreen
+import com.example.aegis.ui.playbooks.PlaybookBuilderScreen
+import com.example.aegis.ui.playbooks.PlaybookDetailScreen
+import com.example.aegis.ui.playbooks.PlaybooksScreen
 import com.example.aegis.ui.settings.SettingsScreen
 import com.example.aegis.ui.theme.*
 import com.example.aegis.ui.threats.ThreatDetailScreen
@@ -58,13 +62,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Bottom Nav Items
+// Bottom Nav Items — 4 tabs now
 data class BottomNavItem(val route: String, val label: String, val icon: ImageVector, val index: Int)
 
 val bottomNavItems = listOf(
     BottomNavItem("main_dashboard", "Dashboard", Icons.Default.Dashboard, 0),
     BottomNavItem("main_threats", "Threats", Icons.Default.Security, 1),
-    BottomNavItem("main_settings", "Settings", Icons.Default.Settings, 2),
+    BottomNavItem("main_playbooks", "Playbooks", Icons.Default.AutoFixHigh, 2),
+    BottomNavItem("main_settings", "Settings", Icons.Default.Settings, 3),
 )
 
 @Composable
@@ -184,6 +189,34 @@ fun AegisApp(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
                 )
             }
 
+            // ── Playbooks Tab ──
+            composable(
+                "main_playbooks",
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { if (currentTabIndex > previousTabIndex) it else -it },
+                        animationSpec = tween(350)
+                    ) + fadeIn(animationSpec = tween(350))
+                },
+                exitTransition = {
+                    val toDetail = targetState.destination.route?.startsWith("playbook_detail") == true ||
+                                   targetState.destination.route == "playbook_builder"
+                    if (toDetail) {
+                        fadeOut(animationSpec = tween(300))
+                    } else {
+                        slideOutHorizontally(
+                            targetOffsetX = { if (currentTabIndex > previousTabIndex) -it else it },
+                            animationSpec = tween(350)
+                        ) + fadeOut(animationSpec = tween(350))
+                    }
+                }
+            ) {
+                PlaybooksScreen(
+                    onPlaybookClick = { id -> navController.navigate("playbook_detail/$id") },
+                    onCreateClick = { navController.navigate("playbook_builder") }
+                )
+            }
+
             // ── Settings Tab ──
             composable(
                 "main_settings",
@@ -238,6 +271,71 @@ fun AegisApp(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
                 ThreatDetailScreen(
                     threatId = threatId,
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            // ── Playbook Detail ──
+            composable(
+                "playbook_detail/{playbookId}",
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
+                    ) + fadeIn(animationSpec = tween(400))
+                },
+                exitTransition = { fadeOut(animationSpec = tween(300)) },
+                popExitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) +
+                    fadeOut(animationSpec = tween(300))
+                }
+            ) { backStackEntry ->
+                val playbookId = backStackEntry.arguments?.getString("playbookId")?.toIntOrNull() ?: 0
+                PlaybookDetailScreen(
+                    playbookId = playbookId,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { id -> navController.navigate("playbook_builder/$id") }
+                )
+            }
+
+            // ── Playbook Builder (Create) ──
+            composable(
+                "playbook_builder",
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
+                    ) + fadeIn(animationSpec = tween(400))
+                },
+                popExitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) +
+                    fadeOut(animationSpec = tween(300))
+                }
+            ) {
+                PlaybookBuilderScreen(
+                    onBack = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() }
+                )
+            }
+
+            // ── Playbook Builder (Edit) ──
+            composable(
+                "playbook_builder/{playbookId}",
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
+                    ) + fadeIn(animationSpec = tween(400))
+                },
+                popExitTransition = {
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) +
+                    fadeOut(animationSpec = tween(300))
+                }
+            ) { backStackEntry ->
+                val playbookId = backStackEntry.arguments?.getString("playbookId")?.toIntOrNull()
+                PlaybookBuilderScreen(
+                    editPlaybookId = playbookId,
+                    onBack = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() }
                 )
             }
         }

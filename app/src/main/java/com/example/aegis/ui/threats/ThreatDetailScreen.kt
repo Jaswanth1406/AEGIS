@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -171,27 +172,103 @@ fun ThreatDetailScreen(threatId: Int, onBack: () -> Unit) {
                     }
                 }
 
-                // Execute Playbook
+                // Execute Playbook — with selector
                 AnimatedSection(visible = contentVisible, delayMs = 400) {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                try {
-                                    val resp = ApiClient.getInstance().executePlaybook(1, PlaybookExecuteRequest(t.id))
-                                    if (resp.isSuccessful) Toast.makeText(context, "Playbook executed!", Toast.LENGTH_SHORT).show()
-                                    else Toast.makeText(context, "Failed: ${resp.code()}", Toast.LENGTH_SHORT).show()
-                                } catch (_: Exception) {
-                                    Toast.makeText(context, "Network error", Toast.LENGTH_SHORT).show()
+                    var playbooks by remember { mutableStateOf<List<com.example.aegis.data.models.Playbook>>(emptyList()) }
+                    var selectedPb by remember { mutableStateOf<com.example.aegis.data.models.Playbook?>(null) }
+                    var expanded by remember { mutableStateOf(false) }
+                    var executing by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(Unit) {
+                        try {
+                            val resp = ApiClient.getInstance().getPlaybooks()
+                            if (resp.isSuccessful) playbooks = resp.body() ?: emptyList()
+                        } catch (_: Exception) { }
+                    }
+
+                    Column {
+                        Text("Execute Playbook", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = cyber.textPrimary)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Dropdown selector
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(cyber.cardBackground)
+                                    .border(1.dp, cyber.borderColor, RoundedCornerShape(12.dp))
+                                    .clickable { expanded = true }
+                                    .padding(16.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        selectedPb?.name ?: if (playbooks.isEmpty()) "No playbooks available" else "Select a playbook...",
+                                        color = if (selectedPb != null) cyber.textPrimary else cyber.textSecondary,
+                                        fontSize = 14.sp
+                                    )
+                                    Icon(Icons.Default.ArrowDropDown, null, tint = cyber.textSecondary)
                                 }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = cyber.neonBlue, contentColor = Color.White)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Execute Playbook", fontWeight = FontWeight.Bold)
+                            DropdownMenu(
+                                expanded = expanded && playbooks.isNotEmpty(),
+                                onDismissRequest = { expanded = false },
+                                modifier = Modifier.background(cyber.cardBackground)
+                            ) {
+                                playbooks.forEach { pb ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(pb.name, color = cyber.textPrimary, fontWeight = FontWeight.SemiBold)
+                                                Text(
+                                                    "${pb.steps?.size ?: 0} actions",
+                                                    fontSize = 11.sp, color = cyber.neonCyan
+                                                )
+                                            }
+                                        },
+                                        onClick = { selectedPb = pb; expanded = false }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                val pbId = selectedPb?.id ?: return@Button
+                                executing = true
+                                scope.launch {
+                                    try {
+                                        val resp = ApiClient.getInstance().executePlaybook(pbId, PlaybookExecuteRequest(t.id))
+                                        if (resp.isSuccessful) {
+                                            Toast.makeText(context, "✅ Playbook executed!", Toast.LENGTH_LONG).show()
+                                        } else {
+                                            Toast.makeText(context, "Failed: ${resp.code()}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    executing = false
+                                }
+                            },
+                            enabled = selectedPb != null && !executing,
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = cyber.neonBlue, contentColor = Color.White)
+                        ) {
+                            if (executing) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Execute${selectedPb?.let { ": ${it.name}" } ?: ""}", fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
 

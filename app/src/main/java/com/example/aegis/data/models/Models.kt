@@ -2,7 +2,6 @@ package com.example.aegis.data.models
 
 import com.google.gson.annotations.SerializedName
 
-// ─── Dashboard ───
 data class DashboardStats(
     @SerializedName("critical_threats") val criticalThreats: Int,
     @SerializedName("active_alerts") val activeAlerts: Int,
@@ -21,7 +20,6 @@ data class AttackGlobal(
     val severity: String?
 )
 
-// ─── Threats ───
 data class ThreatItem(
     val id: Int,
     @SerializedName("threat_type") val threatType: String,
@@ -45,15 +43,39 @@ data class ThreatListResponse(
 
 data class StatusUpdateRequest(val status: String)
 
-// ─── Playbooks ───
+data class PlaybookStep(
+    val action: String,
+    val params: Map<String, String>? = null
+)
+
 data class Playbook(
     val id: Int,
     val name: String,
     val description: String?,
-    val steps: List<String>?
+    val steps: List<PlaybookStep>?,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+data class PlaybookCreateRequest(
+    val name: String,
+    val description: String,
+    val steps: List<PlaybookStep>
+)
+
+data class PlaybookUpdateRequest(
+    val name: String? = null,
+    val description: String? = null,
+    val steps: List<PlaybookStep>? = null
 )
 
 data class PlaybookExecuteRequest(@SerializedName("threat_id") val threatId: Int)
+
+data class StepResult(
+    val action: String?,
+    val status: String?,
+    val output: String?,
+    @SerializedName("duration_ms") val durationMs: Long? = null
+)
 
 data class PlaybookLog(
     val id: Int,
@@ -61,10 +83,11 @@ data class PlaybookLog(
     @SerializedName("threat_id") val threatId: Int,
     val status: String?,
     @SerializedName("executed_at") val executedAt: String?,
-    @SerializedName("playbook_name") val playbookName: String?
+    @SerializedName("playbook_name") val playbookName: String?,
+    @SerializedName("duration_ms") val durationMs: Long? = null,
+    @SerializedName("step_results") val stepResults: List<StepResult>? = null
 )
 
-// ─── Settings ───
 data class SettingsData(
     @SerializedName("alert_thresholds") val alertThresholds: AlertThresholds?,
     @SerializedName("notification_preferences") val notificationPreferences: NotificationPreferences?,

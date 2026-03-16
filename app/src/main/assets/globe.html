@@ -32,9 +32,6 @@ body{overflow:hidden;background:#0d1117;touch-action:none}
 <div id="tooltip"></div>
 
 <script>
-// ═══════════════════════════════════════════
-//  SEVERITY COLOR MAP
-// ═══════════════════════════════════════════
 const sevColors = {
   CRITICAL: '#ff0040',
   HIGH:     '#ff3366',
@@ -50,16 +47,10 @@ function getSevColor(s) {
 const cyanGlow  = '#00f7ff';
 const deepBlue  = '#0066ff';
 
-// ═══════════════════════════════════════════
-//  DATA
-// ═══════════════════════════════════════════
 let arcsData  = [];
 let ringsData = [];
 let attackRegistry = [];
 
-// ═══════════════════════════════════════════
-//  GLOBE — original night-map style
-// ═══════════════════════════════════════════
 const world = Globe()
   (document.getElementById('globeViz'))
   .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
@@ -72,11 +63,8 @@ const world = Globe()
 
 const gMat = world.globeMaterial();
 gMat.shininess = 20;
-gMat.specular = new THREE.Color(0x333333); // Neutral dark grey specular reflection (no violet/blue)
+gMat.specular = new THREE.Color(0x333333);
 
-// ═══════════════════════════════════════════
-//  CONTROLS — smooth 360° rotation
-// ═══════════════════════════════════════════
 const controls = world.controls();
 controls.autoRotate      = true;
 controls.autoRotateSpeed = 0.5;
@@ -91,9 +79,6 @@ controls.maxDistance      = 500;
 controls.minPolarAngle   = 0;
 controls.maxPolarAngle   = Math.PI;
 
-// ═══════════════════════════════════════════
-//  ARCS & RINGS — THIN arcs, SMALL waves
-// ═══════════════════════════════════════════
 world
   .arcsData(arcsData)
   .arcColor('color')
@@ -108,9 +93,6 @@ world
   .ringPropagationSpeed('propagationSpeed')
   .ringRepeatPeriod('repeatPeriod');
 
-// ═══════════════════════════════════════════
-//  TOOLTIP
-// ═══════════════════════════════════════════
 const tooltip = document.getElementById('tooltip');
 
 function showTooltip(x, y, a) {
@@ -129,9 +111,6 @@ function showTooltip(x, y, a) {
 }
 function hideTooltip(){ tooltip.style.display='none'; }
 
-// ═══════════════════════════════════════════
-//  TAP on globe / arc
-// ═══════════════════════════════════════════
 let tapTarget = null;
 
 function findNearestAttack(lat, lng) {
@@ -179,13 +158,10 @@ world.onArcClick(function(arc, event) {
   }
 });
 
-// ═══════════════════════════════════════════
-//  INJECT — severity-colored arcs & waves
-// ═══════════════════════════════════════════
 window.injectAttack = function(srcLat, srcLng, tgtLat, tgtLng, sourceIp, targetSystem, severity, threatId) {
   const sColor = getSevColor(severity);
 
-  // Very thin continuous arc — severity colored
+
   const newArc = {
     startLat: srcLat, startLng: srcLng,
     endLat: tgtLat,   endLng: tgtLng,
@@ -193,20 +169,20 @@ window.injectAttack = function(srcLat, srcLng, tgtLat, tgtLng, sourceIp, targetS
     stroke: 0.3
   };
 
-  // SMALL target ring
+
   const tgtRing = {
     lat: tgtLat, lng: tgtLng,
     color: cyanGlow,
-    maxR: 3,             // ← SMALL wave
+    maxR: 3,
     propagationSpeed: 1.2,
     repeatPeriod: 1200
   };
 
-  // SMALL source ring — severity colored
+
   const srcRing = {
     lat: srcLat, lng: srcLng,
     color: sColor,
-    maxR: 2,             // ← SMALL wave
+    maxR: 2,
     propagationSpeed: 1.0,
     repeatPeriod: 1500
   };

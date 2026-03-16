@@ -1,0 +1,270 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-navy: #0a0f1e;
+  --color-card: #0d1529;
+  --color-border: #1a2744;
+  --color-teal: #00d4ff;
+  --color-critical: #ff3b3b;
+  --color-warning: #ffd93d;
+  --color-safe: #00ff88;
+  --color-text-primary: #e2e8f0;
+  --color-text-muted: #64748b;
+  --color-card-hover: #111d36;
+  --color-navy-light: #0d1529;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #0a0f1e;
+  color: #e2e8f0;
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0f1e;
+}
+::-webkit-scrollbar-thumb {
+  background: #1a2744;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00d4ff;
+}
+
+/* Glow Animations */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.5;
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes glow-pulse-critical {
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(255, 59, 59, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 59, 59, 0.6);
+  }
+}
+
+@keyframes glow-pulse-warning {
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(255, 217, 61, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 217, 61, 0.6);
+  }
+}
+
+@keyframes glow-pulse-safe {
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.6);
+  }
+}
+
+@keyframes glow-pulse-teal {
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.6);
+  }
+}
+
+@keyframes particle-float {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh) translateX(100px);
+    opacity: 0;
+  }
+}
+
+@keyframes progress-fill {
+  from {
+    width: 0%;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+.animate-slide-down {
+  animation: slide-down 0.5s ease-out;
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out;
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+.glow-critical {
+  animation: glow-pulse-critical 2s ease-in-out infinite;
+}
+.glow-warning {
+  animation: glow-pulse-warning 2s ease-in-out infinite;
+}
+.glow-safe {
+  animation: glow-pulse-safe 2s ease-in-out infinite;
+}
+.glow-teal {
+  animation: glow-pulse-teal 2s ease-in-out infinite;
+}
+
+/* Gradient Text */
+.text-gradient-teal {
+  background: linear-gradient(135deg, #00d4ff, #00ff88);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass Card */
+.glass-card {
+  background: rgba(13, 21, 41, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid #1a2744;
+  border-radius: 16px;
+}
+
+/* Severity Backgrounds */
+.bg-severity-critical {
+  background: rgba(255, 59, 59, 0.08);
+}
+.bg-severity-high {
+  background: rgba(255, 149, 59, 0.08);
+}
+.bg-severity-medium {
+  background: rgba(255, 217, 61, 0.08);
+}
+.bg-severity-low {
+  background: rgba(0, 255, 136, 0.08);
+}
+
+/* Particle Background */
+.particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(0, 212, 255, 0.3);
+  border-radius: 50%;
+  animation: particle-float linear infinite;
+}

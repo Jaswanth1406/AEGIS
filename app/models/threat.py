@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Enum, Float, Integer, String
+from sqlalchemy import JSON, DateTime, Enum, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -20,4 +20,6 @@ class Threat(Base):
     confidence_score: Mapped[float] = mapped_column(Float, nullable=False)
     anomaly_score: Mapped[float] = mapped_column(Float, nullable=False)
     explanation_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    shap_values: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    ai_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     threat_fingerprint: Mapped[list[float]] = mapped_column(JSON, nullable=False)

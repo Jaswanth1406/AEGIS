@@ -1,6 +1,18 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class PlaybookCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    description: str = Field(min_length=1, max_length=500)
+    steps: list[str] = Field(min_length=1)
+
+
+class PlaybookUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = Field(default=None, min_length=1, max_length=500)
+    steps: list[str] | None = Field(default=None, min_length=1)
 
 
 class PlaybookResponse(BaseModel):

@@ -14,6 +14,7 @@ def create_threat(db: Session, payload: ThreatIngestionRequest) -> Threat:
         confidence_score=payload.confidence_score,
         anomaly_score=payload.anomaly_score,
         explanation_json=payload.explanation,
+        shap_values=[s.model_dump() for s in payload.shap_values],
         threat_fingerprint=payload.threat_fingerprint,
     )
     db.add(threat)

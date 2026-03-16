@@ -5,6 +5,11 @@ from pydantic import BaseModel, Field, IPvAnyAddress
 from app.models.enums import SeverityEnum, ThreatStatusEnum
 
 
+class ShapValue(BaseModel):
+    feature: str
+    value: float
+
+
 class ThreatIngestionRequest(BaseModel):
     threat_type: str
     severity: SeverityEnum
@@ -13,6 +18,7 @@ class ThreatIngestionRequest(BaseModel):
     confidence_score: float = Field(ge=0.0, le=1.0)
     anomaly_score: float = Field(ge=0.0, le=1.0)
     explanation: dict
+    shap_values: list[ShapValue] = Field(default_factory=list)
     threat_fingerprint: list[float]
 
 
@@ -31,6 +37,8 @@ class ThreatResponse(BaseModel):
     confidence_score: float
     anomaly_score: float
     explanation: dict
+    shap_values: list[ShapValue]
+    ai_analysis: str | None
     fingerprint: list[float]
 
 

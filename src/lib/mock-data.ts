@@ -15,6 +15,10 @@ export interface Threat {
     recommendedAction: string;
     aiConfidence?: number;
   };
+  shap_values?: { feature: string; value: number }[];
+  ai_analysis?: string | null;
+  confidence_score?: number;
+  anomaly_score?: number;
 }
 
 export interface Playbook {

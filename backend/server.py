@@ -49,8 +49,10 @@ def push_threat_to_platform(threat_data: dict):
         "X-Internal-API-Key": INTERNAL_API_KEY
     }
     try:
-        req = urllib.request.Request(url, data=json.dumps(threat_data).encode("utf-8"), headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=3) as response:
+        # Use default= to handle numpy types
+        payload = json.dumps(threat_data, default=lambda o: float(o) if hasattr(o, 'item') else str(o))
+        req = urllib.request.Request(url, data=payload.encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=5) as response:
             print(f"✅ Pushed threat to Platform API: {response.status}")
     except Exception as e:
         print(f"⚠️ Failed to push threat to Platform API ({url}): {e}")
@@ -101,6 +103,7 @@ class ThreatPredictionResponse(BaseModel):
     confidence_score: float
     anomaly_score: float
     explanation: dict
+    shap_values: Optional[list] = None
     threat_fingerprint: list[float]
 
 
@@ -226,8 +229,8 @@ async def predict(request: ThreatPredictionRequest, background_tasks: Background
     )
     
     # Forward the threat detection to the main Platform Backend API
-    if result["threat_type"] != "benign":
-        background_tasks.add_task(push_threat_to_platform, result)
+    print(f"📡 Queuing push for {result['threat_type']} prediction to Platform API...")
+    background_tasks.add_task(push_threat_to_platform, result)
         
     return result
 

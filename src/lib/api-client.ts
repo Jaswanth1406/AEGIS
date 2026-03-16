@@ -49,3 +49,9 @@ export const executePlaybook = async (playbookId: string | number, threatId: str
   if (!res.ok) throw new Error("Failed to execute playbook");
   return res.json();
 };
+
+export const fetchThreatById = async (threatId: string | number) => {
+  const res = await fetch(`${API_BASE_URL}/api/threats/${threatId}`, { headers: getHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch threat details");
+  return res.json();
+};

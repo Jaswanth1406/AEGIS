@@ -78,6 +78,9 @@ class InferencePipeline:
             explanation_list = self.explainer.explain(X_scaled, top_n=5)[0]["top_features"]
             explanation_dict = {item["feature"]: item["importance"] for item in explanation_list}
 
+            # Build shap_values array for frontend
+            shap_values = [{"feature": item["feature"], "value": item["importance"]} for item in explanation_list]
+
             return {
                 "threat_type": threat_type,
                 "severity": severity,
@@ -86,9 +89,16 @@ class InferencePipeline:
                 "confidence_score": confidence,
                 "anomaly_score": round(anomaly_score, 4),
                 "explanation": explanation_dict,
+                "shap_values": shap_values,
                 "threat_fingerprint": fingerprint.flatten().tolist()
             }
         else:
+            # Still generate SHAP values for benign traffic
+            fingerprint = self.threat_dna.generate_fingerprint(X_scaled)
+            explanation_list = self.explainer.explain(X_scaled, top_n=5)[0]["top_features"]
+            explanation_dict = {item["feature"]: item["importance"] for item in explanation_list}
+            shap_values = [{"feature": item["feature"], "value": item["importance"]} for item in explanation_list]
+
             return {
                 "threat_type": "Benign",
                 "severity": "LOW",
@@ -96,8 +106,9 @@ class InferencePipeline:
                 "target_system": target_system,
                 "confidence_score": 1.0,
                 "anomaly_score": round(anomaly_score, 4),
-                "explanation": {},
-                "threat_fingerprint": []
+                "explanation": explanation_dict,
+                "shap_values": shap_values,
+                "threat_fingerprint": fingerprint.flatten().tolist()
             }
 
     def predict_batch(self, X_raw: np.ndarray, source_ips: list[str] = None, target_systems: list[str] = None) -> list[dict]:
@@ -133,6 +144,7 @@ class InferencePipeline:
                     
                 fp = self.threat_dna.generate_fingerprint(X_scaled[i:i+1])
                 exp_dict = {item["feature"]: item["importance"] for item in explanations[i]["top_features"]}
+                shap_vals = [{"feature": item["feature"], "value": item["importance"]} for item in explanations[i]["top_features"]]
                 
                 results.append({
                     "threat_type": threat_type,
@@ -142,9 +154,13 @@ class InferencePipeline:
                     "confidence_score": classifications[i]["confidence"],
                     "anomaly_score": round(float(anomaly_scores[i]), 4),
                     "explanation": exp_dict,
+                    "shap_values": shap_vals,
                     "threat_fingerprint": fp.flatten().tolist()
                 })
             else:
+                fp = self.threat_dna.generate_fingerprint(X_scaled[i:i+1])
+                exp_dict = {item["feature"]: item["importance"] for item in explanations[i]["top_features"]}
+                shap_vals = [{"feature": item["feature"], "value": item["importance"]} for item in explanations[i]["top_features"]]
                 results.append({
                     "threat_type": "Benign",
                     "severity": "LOW",
@@ -152,8 +168,9 @@ class InferencePipeline:
                     "target_system": tgt_sys,
                     "confidence_score": 1.0,
                     "anomaly_score": round(float(anomaly_scores[i]), 4),
-                    "explanation": {},
-                    "threat_fingerprint": []
+                    "explanation": exp_dict,
+                    "shap_values": shap_vals,
+                    "threat_fingerprint": fp.flatten().tolist()
                 })
 
         return results

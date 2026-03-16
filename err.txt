@@ -1,4 +1,0 @@
-e: file:///D:/Projects/CyberShield/AndroidCode/app/src/main/java/com/example/aegis/ui/intro/IntroScreen.kt:81:51 The floating-point literal does not conform to the expected type Color
-e: file:///D:/Projects/CyberShield/AndroidCode/app/src/main/java/com/example/aegis/ui/intro/IntroScreen.kt:200:43 The floating-point literal does not conform to the expected type Color
-e: file:///D:/Projects/CyberShield/AndroidCode/app/src/main/java/com/example/aegis/ui/intro/IntroScreen.kt:211:37 Unresolved reference. None of the following candidates is applicable because of receiver type mismatch: 
-e: file:///D:/Projects/CyberShield/AndroidCode/app/src/main/java/com/example/aegis/ui/intro/IntroScreen.kt:215:58 Type mismatch: inferred type is Color but Float was expected

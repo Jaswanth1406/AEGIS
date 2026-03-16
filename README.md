@@ -4,6 +4,17 @@ AEGIS is a cutting-edge Android application designed for Security Orchestration,
 
 Built with modern Android development practices, AEGIS features a stunning dark "cyber" theme, rich visualizations, and direct integration with backend infrastructure to execute automated playbooks.
 
+## Screenshots
+
+<div align="center">
+  <img src="output/01_dashboard.jpeg" width="30%" />
+  <img src="output/02_threat_intelligence.jpeg" width="30%" />
+  <img src="output/03_threat_details.jpeg" width="30%" />
+  <img src="output/04_playbooks_list.jpeg" width="30%" />
+  <img src="output/05_playbook_details.jpeg" width="30%" />
+  <img src="output/06_playbook_builder.jpeg" width="30%" />
+</div>
+
 ## Key Features
 
 *   **Live Dashboard & 3D Attack visualization:** Provides a real-time, interactive 3D globe visualization (powered by Three.js and Globe.gl) showing the origin, target, and severity of cyber attacks as they happen. Includes live statistics for critical threats and active alerts.

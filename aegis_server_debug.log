@@ -1,0 +1,125 @@
+nohup: ignoring input
+INFO:     Started server process [125621]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     11.12.3.16:32864 - "GET /api/threats/2 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "GET /api/playbooks HTTP/1.1" 200 OK
+Could not reach Target System to enforce block (All connection attempts failed). Proceeded with local logging only.
+[DEBUG] Overall status: completed
+[DEBUG] has_status_update: False, steps: [{'action': 'block_ip', 'params': {'ip': '{source_ip}'}}]
+[DEBUG] Running auto-mitigate action...
+[DEBUG] auto_result: {'status': 'completed', 'message': 'Updated threat 20 status to MITIGATED'}
+INFO:     127.0.0.1:50474 - "POST /api/playbooks/11/execute HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:47952 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "GET /api/threats?page=1&limit=20&severity=CRITICAL HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "GET /api/threats/1 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:47952 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:47976 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:47964 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "PATCH /api/threats/1/status HTTP/1.1" 200 OK
+INFO:     11.12.3.16:32864 - "PATCH /api/threats/1/status HTTP/1.1" 200 OK
+INFO:     11.12.3.16:51580 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:51572 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:51580 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.3.16:51580 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:51606 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:51594 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:51602 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:51580 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:51572 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:64245 - "OPTIONS /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:49898 - "GET /api/threats/stream?token=demo-token HTTP/1.1" 200 OK
+INFO:     11.12.18.164:54181 - "GET /api/threats/stream?token=demo-token HTTP/1.1" 200 OK
+INFO:     11.12.18.164:57696 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.18.164:60615 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.164:49768 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:64245 - "GET /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:64245 - "GET /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:64245 - "GET /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:64245 - "GET /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44216 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44234 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44222 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44246 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44208 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44216 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:64245 - "GET /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:64245 - "GET /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39206 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:64245 - "GET /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/threats?page=1&limit=20&severity=CRITICAL HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/threats/1 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39206 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39238 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39226 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+Could not reach Target System to enforce block (All connection attempts failed). Proceeded with local logging only.
+[DEBUG] Overall status: completed
+[DEBUG] has_status_update: False, steps: [{'action': 'block_ip', 'params': {'ip': '{source_ip}'}}]
+[DEBUG] Running auto-mitigate action...
+[DEBUG] auto_result: {'status': 'completed', 'message': 'Updated threat 1 status to MITIGATED'}
+INFO:     11.12.3.16:39222 - "POST /api/playbooks/9/execute HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39206 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.201:54731 - "GET /api/threats/stream?token=demo-token HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/threats?page=1&limit=20&severity=CRITICAL HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/threats/1 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43538 - "GET /api/threats/20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "PATCH /api/threats/1/status HTTP/1.1" 200 OK
+Could not reach Target System to enforce block (All connection attempts failed). Proceeded with local logging only.
+[DEBUG] Overall status: completed
+[DEBUG] has_status_update: True, steps: [{'action': 'block_ip', 'params': {'ip': '156.130.40.35'}}, {'action': 'escalate_to_tier2', 'params': {'threat_id': '{id}'}}, {'action': 'update_threat_status', 'params': {'status': 'MITIGATED'}}]
+INFO:     11.12.3.16:39222 - "POST /api/playbooks/8/execute HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58706 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58696 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58692 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58706 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:60040 - "GET /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/playbooks/logs HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/settings HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.3.16:39222 - "GET /api/playbooks/logs HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55690 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55690 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55690 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55690 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55696 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55704 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55692 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:60318 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:60318 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:60318 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:60334 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:60318 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:60334 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:60318 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36806 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36862 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36862 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36876 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36866 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:37906 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.3.16:37906 - "GET /api/playbooks/logs HTTP/1.1" 200 OK
+INFO:     11.12.3.16:42810 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:61215 - "GET /api/threats?page=1&limit=8 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:42810 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:42826 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:42830 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for connections to close. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [125621]

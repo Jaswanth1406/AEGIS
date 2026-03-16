@@ -39,6 +39,7 @@ class ThreatResponse(BaseModel):
     explanation: dict
     shap_values: list[ShapValue]
     ai_analysis: str | None
+    suggested_playbook: list[dict] | None = None
     fingerprint: list[float]
 
 

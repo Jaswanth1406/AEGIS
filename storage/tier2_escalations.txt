@@ -1,0 +1,6 @@
+Threat 1 (Severity: SeverityEnum.HIGH)
+Threat 10 (Severity: SeverityEnum.HIGH)
+Threat 10 (Severity: SeverityEnum.HIGH)
+Threat 1 (Severity: SeverityEnum.CRITICAL)
+Threat 26 (Severity: SeverityEnum.LOW)
+Threat 25 (Severity: SeverityEnum.HIGH)

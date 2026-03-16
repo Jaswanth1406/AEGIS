@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import dashboard, playbooks, settings, threats
+from app.api.routes import dashboard, honeytokens, playbooks, settings, threats
 from app.db.session import init_db
 
 
@@ -25,6 +25,7 @@ app.include_router(threats.router)
 app.include_router(dashboard.router)
 app.include_router(playbooks.router)
 app.include_router(settings.router)
+app.include_router(honeytokens.router)
 
 
 @app.get("/health")

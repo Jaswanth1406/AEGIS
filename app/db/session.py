@@ -20,6 +20,7 @@ def init_db() -> None:
     from app.models import base  # noqa: F401
     from app.models import (  # noqa: F401
         AuditLog,
+        Honeytoken,
         Playbook,
         PlaybookExecutionLog,
         Setting,
@@ -45,7 +46,9 @@ def init_db() -> None:
                 Playbook(
                     name="Default Threat Containment",
                     description="Prototype playbook to observe, isolate, remediate, and validate.",
-                    steps="Observe,Isolate,Remediate,Validate",
+                    steps=[
+                        {"action": "update_threat_status", "params": {"status": "INVESTIGATING"}}
+                    ]
                 )
             )
         db.commit()

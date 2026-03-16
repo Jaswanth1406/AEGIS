@@ -22,4 +22,5 @@ class Threat(Base):
     explanation_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     shap_values: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
     ai_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suggested_playbook: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     threat_fingerprint: Mapped[list[float]] = mapped_column(JSON, nullable=False)

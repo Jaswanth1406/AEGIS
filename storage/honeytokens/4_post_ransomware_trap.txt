@@ -1,0 +1,3 @@
+type=credential
+value=decoy_5ae7cea64be1
+location=recovery/config.yml

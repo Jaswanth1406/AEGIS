@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
+
 def test_health() -> None:
     with TestClient(app) as client:
         response = client.get("/health")
@@ -9,22 +10,10 @@ def test_health() -> None:
         assert response.json()["status"] == "ok"
 
 
-def test_auth_and_threat_flow() -> None:
-    email = "analyst-smoke@example.com"
+def test_threat_and_playbook_flow() -> None:
     with TestClient(app) as client:
-        register = client.post(
-            "/api/auth/register",
-            json={"name": "Smoke Analyst", "email": email, "password": "demo-pass", "role": "analyst"},
-        )
-        assert register.status_code in (201, 409)
-
-        login = client.post("/api/auth/login", json={"email": email, "password": "demo-pass"})
-        assert login.status_code == 200
-        token = login.json()["access_token"]
-
         ingest = client.post(
             "/api/internal/threats",
-            headers={"X-Internal-API-Key": "internal-dev-key"},
             json={
                 "threat_type": "Port Scan",
                 "severity": "HIGH",
@@ -39,14 +28,34 @@ def test_auth_and_threat_flow() -> None:
         assert ingest.status_code == 201
         threat_id = ingest.json()["id"]
 
-        get_threats = client.get("/api/threats", headers={"Authorization": f"Bearer {token}"})
+        get_threats = client.get("/api/threats")
         assert get_threats.status_code == 200
         assert get_threats.json()["total"] >= 1
 
         patch = client.patch(
             f"/api/threats/{threat_id}/status",
-            headers={"Authorization": f"Bearer {token}"},
             json={"status": "CONTAINED"},
         )
         assert patch.status_code == 200
         assert patch.json()["status"] == "CONTAINED"
+
+        approve = client.post(
+            f"/api/threats/{threat_id}/approve-playbook",
+            json={
+                "name": "Smoke Playbook",
+                "description": "Demo containment flow",
+                "steps": [
+                    {"action": "block_ip", "params": {"ip": "{source_ip}"}},
+                    {"action": "update_threat_status", "params": {"status": "MITIGATED"}},
+                ],
+                "execute_now": True,
+                "executed_by": "smoke-test",
+            },
+        )
+        assert approve.status_code == 201
+        assert approve.json()["executed"] is True
+        assert approve.json()["execution_status"] in ("completed", "completed_with_errors")
+
+        updated = client.get(f"/api/threats/{threat_id}")
+        assert updated.status_code == 200
+        assert updated.json()["status"] == "MITIGATED"

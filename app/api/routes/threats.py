@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, BackgroundTasks
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db, SessionLocal
+from app.models.playbook import Playbook
 from app.models.threat import Threat
 from app.schemas.threat import ThreatIngestionRequest, ThreatListResponse, ThreatResponse, ThreatStatusUpdateRequest
 from app.services.audit_service import write_audit_log
 from app.services.threat_service import create_threat, list_threats
-from app.services.ai_service import generate_threat_analysis
+from app.services.ai_service import generate_threat_analysis, generate_playbook_suggestion
+from app.services.playbook_service import execute_playbook
 from app.streaming.sse import threat_event_bus
 
 
@@ -28,20 +31,26 @@ def to_threat_response(threat: Threat) -> ThreatResponse:
         explanation=threat.explanation_json,
         shap_values=threat.shap_values,
         ai_analysis=threat.ai_analysis,
+        suggested_playbook=threat.suggested_playbook,
         fingerprint=threat.threat_fingerprint,
     )
 
 
 async def _run_ai_analysis_task(threat_id: int, payload_data: dict, shap_data: list[dict]) -> None:
+    # Step 1: Generate AI text analysis
     analysis = await generate_threat_analysis(payload_data, shap_data)
-    if not analysis:
-        return
-        
+    
+    # Step 2: Generate playbook suggestion
+    suggestion = await generate_playbook_suggestion(payload_data, shap_data)
+
     db = SessionLocal()
     try:
         threat = db.get(Threat, threat_id)
         if threat:
-            threat.ai_analysis = analysis
+            if analysis:
+                threat.ai_analysis = analysis
+            if suggestion:
+                threat.suggested_playbook = suggestion
             db.commit()
             db.refresh(threat)
             
@@ -116,3 +125,88 @@ async def update_threat_status(
     write_audit_log(db, None, "threat_status_changed", {"threat_id": threat.id, "status": payload.status.value})
     await threat_event_bus.publish({"event": "threat.status_updated", "payload": {"id": threat.id, "status": payload.status.value}})
     return to_threat_response(threat)
+
+
+# --- Playbook Suggestion Endpoints ---
+
+class ApprovePlaybookRequest(BaseModel):
+    name: str = "AI-Suggested Playbook"
+    description: str = "Auto-generated playbook from AI analysis"
+    steps: list[dict] | None = None  # If None, uses the suggested_playbook as-is
+    execute_now: bool = True
+    executed_by: str = "demo-operator"
+
+
+@router.post("/api/threats/{threat_id}/approve-playbook", status_code=status.HTTP_201_CREATED)
+async def approve_suggested_playbook(
+    threat_id: int,
+    payload: ApprovePlaybookRequest,
+    db: Session = Depends(get_db),
+):
+    threat = db.get(Threat, threat_id)
+    if threat is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Threat not found")
+
+    # Use either the edited steps from the frontend or the original suggestion
+    steps = payload.steps if payload.steps else threat.suggested_playbook
+    if not steps:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No suggested playbook to approve")
+
+    # Create a real Playbook
+    playbook = Playbook(
+        name=payload.name,
+        description=payload.description,
+        steps=steps,
+    )
+    db.add(playbook)
+
+    # Clear the suggestion from the threat
+    threat.suggested_playbook = None
+    db.commit()
+    db.refresh(playbook)
+
+    write_audit_log(db, None, "playbook_approved_from_suggestion", {"playbook_id": playbook.id, "threat_id": threat.id})
+
+    response = {
+        "playbook_id": playbook.id,
+        "message": f"Playbook '{playbook.name}' created from suggestion",
+        "executed": False,
+    }
+
+    if payload.execute_now:
+        log = await execute_playbook(db, playbook, threat, payload.executed_by)
+        write_audit_log(
+            db,
+            None,
+            "playbook_executed_from_suggestion",
+            {
+                "playbook_id": playbook.id,
+                "threat_id": threat.id,
+                "status": log.status,
+                "executed_by": payload.executed_by,
+            },
+        )
+        response.update(
+            {
+                "executed": True,
+                "execution_status": log.status,
+                "steps_completed": len(log.log_entries),
+            }
+        )
+
+    return response
+
+
+@router.delete("/api/threats/{threat_id}/dismiss-playbook")
+def dismiss_suggested_playbook(
+    threat_id: int,
+    db: Session = Depends(get_db),
+):
+    threat = db.get(Threat, threat_id)
+    if threat is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Threat not found")
+
+    threat.suggested_playbook = None
+    db.commit()
+
+    return {"message": "Suggested playbook dismissed"}

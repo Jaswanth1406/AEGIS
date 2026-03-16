@@ -1,0 +1,92 @@
+nohup: ignoring input
+INFO:     Started server process [110986]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     11.12.18.164:62352 - "OPTIONS /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.164:50996 - "OPTIONS /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:58777 - "OPTIONS /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53620 - "OPTIONS /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.164:52462 - "OPTIONS /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:62352 - "OPTIONS /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.18.164:50996 - "GET /api/threats/stream?token=demo-token HTTP/1.1" 200 OK
+INFO:     11.12.18.164:52462 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53620 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.164:58777 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53620 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:62352 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.164:52462 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55064 - "GET /api/threats/16 HTTP/1.1" 404 Not Found
+INFO:     11.12.3.16:55058 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42590 - "POST /api/playbooks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:42598 - "POST /api/honeytokens HTTP/1.1" 201 Created
+INFO:     11.12.3.16:55064 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55064 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55064 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55064 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:56941 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.18.164:54266 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53199 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.164:58227 - "GET /api/threats/stream?token=demo-token HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53443 - "GET /api/threats/stream?token=demo-token HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53199 - "OPTIONS /api/threats?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:54266 - "OPTIONS /api/threats?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:56941 - "GET /api/threats/stream?token=demo-token HTTP/1.1" 200 OK
+INFO:     11.12.18.164:54266 - "GET /api/threats?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53199 - "GET /api/threats?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:55064 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:54266 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53199 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.164:61967 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.18.164:54266 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53199 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.164:61967 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.164:53199 - "GET /api/threats/stream?token=demo-token HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58384 - "GET /api/threats/19 HTTP/1.1" 404 Not Found
+INFO:     11.12.3.16:58368 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58384 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58384 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.201:60705 - "OPTIONS /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.201:62027 - "OPTIONS /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.201:52303 - "OPTIONS /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.18.201:59522 - "GET /api/threats/stream?token=demo-token HTTP/1.1" 200 OK
+INFO:     11.12.18.201:52303 - "GET /api/threats?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     11.12.18.201:60705 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.18.201:62027 - "GET /api/playbooks HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58384 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34330 - "POST /api/internal/threats HTTP/1.1" 201 Created
+INFO:     11.12.3.16:58384 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58384 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34342 - "POST /api/playbooks/1/execute HTTP/1.1" 200 OK
+INFO:     11.12.3.16:58384 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44148 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44148 - "GET /api/threats/17 HTTP/1.1" 404 Not Found
+INFO:     11.12.3.16:44148 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44148 - "GET /api/dashboard/stats HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44148 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44148 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44148 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:44148 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:57846 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:57846 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:57846 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:57846 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:57846 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:57846 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36464 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36464 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36464 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36464 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36464 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:36464 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:49082 - "GET /api/attacks/global HTTP/1.1" 200 OK
+INFO:     11.12.3.16:49102 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:49084 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:49098 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:49102 - "GET /api/threats?page=1&limit=50 HTTP/1.1" 200 OK
+INFO:     11.12.3.16:49082 - "GET /api/threats?page=1&limit=200 HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for connections to close. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [110986]

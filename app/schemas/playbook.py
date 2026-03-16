@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -6,20 +7,20 @@ from pydantic import BaseModel, Field
 class PlaybookCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1, max_length=500)
-    steps: list[str] = Field(min_length=1)
+    steps: list[dict[str, Any]] = Field(min_length=1)
 
 
 class PlaybookUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, min_length=1, max_length=500)
-    steps: list[str] | None = Field(default=None, min_length=1)
+    steps: list[dict[str, Any]] | None = Field(default=None, min_length=1)
 
 
 class PlaybookResponse(BaseModel):
     id: int
     name: str
     description: str
-    steps: list[str]
+    steps: list[dict[str, Any]]
     created_at: datetime
 
 

@@ -14,7 +14,7 @@ from app.schemas.playbook import (
     PlaybookUpdateRequest,
 )
 from app.services.audit_service import write_audit_log
-from app.services.playbook_service import execute_playbook, parse_steps
+from app.services.playbook_service import execute_playbook
 
 
 router = APIRouter(prefix="/api/playbooks", tags=["playbooks"])
@@ -25,16 +25,20 @@ def _to_response(item: Playbook) -> PlaybookResponse:
         id=item.id,
         name=item.name,
         description=item.description,
-        steps=parse_steps(item.steps),
+        steps=item.steps,
         created_at=item.created_at,
     )
 
 
-def _serialize_steps(steps: list[str]) -> str:
-    cleaned = [s.strip() for s in steps if s.strip()]
-    if not cleaned:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="At least one non-empty step is required")
-    return ",".join(cleaned)
+def _validate_steps(steps: list[dict]) -> list[dict]:
+    if not steps:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="At least one step is required")
+    for step in steps:
+        if "action" not in step or not isinstance(step["action"], str):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Each step must have a valid 'action' string")
+        if "params" not in step or not isinstance(step["params"], dict):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Each step must have a 'params' dictionary")
+    return steps
 
 
 @router.get("", response_model=list[PlaybookResponse])
@@ -48,7 +52,7 @@ def create_playbook(payload: PlaybookCreateRequest, db: Session = Depends(get_db
     item = Playbook(
         name=payload.name.strip(),
         description=payload.description.strip(),
-        steps=_serialize_steps(payload.steps),
+        steps=_validate_steps(payload.steps),
     )
     db.add(item)
     db.commit()
@@ -85,7 +89,7 @@ def update_playbook(playbook_id: int, payload: PlaybookUpdateRequest, db: Sessio
     if payload.description is not None:
         item.description = payload.description.strip()
     if payload.steps is not None:
-        item.steps = _serialize_steps(payload.steps)
+        item.steps = _validate_steps(payload.steps)
 
     db.commit()
     db.refresh(item)
@@ -95,7 +99,7 @@ def update_playbook(playbook_id: int, payload: PlaybookUpdateRequest, db: Sessio
 
 
 @router.post("/{playbook_id}/execute", response_model=PlaybookExecuteResponse)
-def run_playbook(
+async def run_playbook(
     playbook_id: int,
     payload: PlaybookExecuteRequest,
     db: Session = Depends(get_db),
@@ -108,7 +112,7 @@ def run_playbook(
     if threat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Threat not found")
 
-    log = execute_playbook(db, playbook, threat, "anonymous")
+    log = await execute_playbook(db, playbook, threat, "anonymous")
     write_audit_log(db, None, "playbook_executed", {"playbook_id": playbook.id, "threat_id": threat.id})
 
     return PlaybookExecuteResponse(playbook_id=playbook.id, execution_status=log.status, steps_completed=len(log.log_entries))

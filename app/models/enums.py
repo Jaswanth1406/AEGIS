@@ -19,3 +19,5 @@ class ThreatStatusEnum(str, Enum):
     CONTAINED = "CONTAINED"
     BLOCKED = "BLOCKED"
     RESOLVED = "RESOLVED"
+    MITIGATED = "MITIGATED"
+    IGNORED = "IGNORED"

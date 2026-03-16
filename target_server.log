@@ -1,0 +1,16 @@
+nohup: ignoring input
+INFO:     Started server process [110996]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:46366 - "GET / HTTP/1.1" 200 OK
+CRITICAL:target_app:HONEYTOKEN TRIPPED by 127.0.0.1! Sending alert to AEGIS...
+INFO:     127.0.0.1:46366 - "POST /login HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8000/api/internal/threats "HTTP/1.1 201 Created"
+INFO:target_app:AEGIS notified successfully. Status: 201
+INFO:     127.0.0.1:46366 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46366 - "GET / HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [110996]

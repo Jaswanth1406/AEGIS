@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,9 +65,10 @@ fun PlaybookDetailScreen(
     var playbook by remember { mutableStateOf<Playbook?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var executing by remember { mutableStateOf(false) }
-    var threatIdText by remember { mutableStateOf("") }
     var showExecuteDialog by remember { mutableStateOf(false) }
     var contentVisible by remember { mutableStateOf(false) }
+    var threats by remember { mutableStateOf<List<com.example.aegis.data.models.ThreatItem>>(emptyList()) }
+    var threatsLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(playbookId) {
         try {
@@ -79,60 +81,108 @@ fun PlaybookDetailScreen(
     }
 
     if (showExecuteDialog) {
+        LaunchedEffect(Unit) {
+            threatsLoading = true
+            try {
+                val resp = ApiClient.getInstance().getThreats(limit = 50)
+                if (resp.isSuccessful) threats = resp.body()?.items ?: emptyList()
+            } catch (_: Exception) { }
+            threatsLoading = false
+        }
+
         AlertDialog(
-            onDismissRequest = { showExecuteDialog = false },
+            onDismissRequest = { if (!executing) showExecuteDialog = false },
             containerColor = cyber.cardBackground,
-            title = { Text("Execute Playbook", color = cyber.textPrimary) },
+            title = { Text("Select Threat to Execute Against", color = cyber.textPrimary, fontSize = 18.sp) },
             text = {
-                Column {
-                    Text("Enter the Threat ID to execute this playbook against:", color = cyber.textSecondary, fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = threatIdText,
-                        onValueChange = { threatIdText = it.filter { c -> c.isDigit() } },
-                        label = { Text("Threat ID") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = cyber.neonCyan,
-                            unfocusedBorderColor = cyber.borderColor,
-                            cursorColor = cyber.neonCyan,
-                            focusedTextColor = cyber.textPrimary,
-                            unfocusedTextColor = cyber.textPrimary,
-                            focusedLabelColor = cyber.neonCyan
-                        )
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val tid = threatIdText.toIntOrNull() ?: return@Button
-                        executing = true
-                        scope.launch {
-                            try {
-                                val resp = ApiClient.getInstance().executePlaybook(playbookId, PlaybookExecuteRequest(tid))
-                                if (resp.isSuccessful) {
-                                    Toast.makeText(context, "✅ Playbook executed successfully!", Toast.LENGTH_LONG).show()
-                                } else {
-                                    Toast.makeText(context, "Failed: ${resp.code()}", Toast.LENGTH_SHORT).show()
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                            }
-                            executing = false
-                            showExecuteDialog = false
+                Column(modifier = Modifier.heightIn(max = 400.dp)) {
+                    if (threatsLoading) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = cyber.neonCyan, modifier = Modifier.size(28.dp))
                         }
-                    },
-                    enabled = threatIdText.isNotBlank() && !executing,
-                    colors = ButtonDefaults.buttonColors(containerColor = cyber.neonBlue)
-                ) {
-                    if (executing) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                    else Text("Execute")
+                    } else if (threats.isEmpty()) {
+                        Text("No threats found", color = cyber.textSecondary, fontSize = 14.sp)
+                    } else {
+                        Text("Tap a threat to execute this playbook:", color = cyber.textSecondary, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        androidx.compose.foundation.lazy.LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(threats.size) { idx ->
+                                val t = threats[idx]
+                                val sevColor = when (t.severity.uppercase()) {
+                                    "CRITICAL" -> Color(0xFFFF0040)
+                                    "HIGH" -> Color(0xFFFF3366)
+                                    "MEDIUM" -> cyber.warningYellow
+                                    else -> cyber.neonGreen
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(sevColor.copy(alpha = 0.08f))
+                                        .border(1.dp, sevColor.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            if (executing) return@clickable
+                                            executing = true
+                                            scope.launch {
+                                                try {
+                                                    val resp = ApiClient.getInstance().executePlaybook(playbookId, PlaybookExecuteRequest(t.id))
+                                                    if (resp.isSuccessful) {
+                                                        Toast.makeText(context, "✅ Executed against Threat #${t.id}!", Toast.LENGTH_LONG).show()
+                                                    } else {
+                                                        Toast.makeText(context, "Failed: ${resp.code()}", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                }
+                                                executing = false
+                                                showExecuteDialog = false
+                                            }
+                                        }
+                                        .padding(12.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(sevColor.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("#${t.id}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = sevColor)
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(t.threatType, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cyber.textPrimary, maxLines = 1)
+                                            Text("${t.sourceIp} → ${t.targetSystem}", fontSize = 11.sp, color = cyber.textSecondary, maxLines = 1)
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(sevColor.copy(alpha = 0.15f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(t.severity, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = sevColor)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (executing) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = cyber.neonCyan, strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Executing playbook...", fontSize = 12.sp, color = cyber.neonCyan)
+                        }
+                    }
                 }
             },
+            confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showExecuteDialog = false }) {
+                TextButton(onClick = { if (!executing) showExecuteDialog = false }) {
                     Text("Cancel", color = cyber.textSecondary)
                 }
             }

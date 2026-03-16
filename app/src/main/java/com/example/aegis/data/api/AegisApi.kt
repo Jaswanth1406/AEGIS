@@ -58,4 +58,19 @@ interface AegisApi {
 
     @PUT("api/settings")
     suspend fun updateSettings(@Body body: SettingsData): Response<SettingsData>
+
+    @GET("api/honeytokens")
+    suspend fun getHoneytokens(): Response<List<Honeytoken>>
+
+    @GET("api/honeytokens/{id}")
+    suspend fun getHoneytoken(@Path("id") id: Int): Response<Honeytoken>
+
+    @POST("api/honeytokens")
+    suspend fun createHoneytoken(@Body body: HoneytokenCreateRequest): Response<Honeytoken>
+
+    @DELETE("api/honeytokens/{id}")
+    suspend fun deactivateHoneytoken(@Path("id") id: Int): Response<Honeytoken>
+
+    @POST("api/honeytokens/validate")
+    suspend fun validateHoneytoken(@Body body: HoneytokenValidateRequest): Response<Honeytoken>
 }

@@ -1,0 +1,26 @@
+{
+  "source_ip": "192.168.1.10",
+  "target_system": "web-server",
+  "features": {
+    "Destination Port": 5414.0,
+    "Flow Duration": 174.0,
+    "Total Fwd Packets": 1.0,
+    "Total Backward Packets": 1.0,
+    "Total Length of Fwd Packets": 0.0,
+    "Total Length of Bwd Packets": 6.0,
+    "Fwd Packet Length Mean": 7.105427357601002e-15,
+    "Fwd Packet Length Std": 0.0,
+    "Bwd Packet Length Mean": 6.0,
+    "Bwd Packet Length Std": 0.0,
+    "Flow Bytes/s": 34482.75861999998,
+    "Flow Packets/s": 11494.252869999997,
+    "Flow IAT Mean": 174.0,
+    "Flow IAT Std": 0.0,
+    "Fwd IAT Mean": 0.0,
+    "Bwd IAT Mean": 0.0,
+    "Packet Length Mean": 2.0,
+    "Packet Length Std": 3.464101615000004,
+    "Average Packet Size": 3.0,
+    "Active Mean": 0.0
+  }
+}

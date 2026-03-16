@@ -250,6 +250,36 @@ Animations rely heavily on `<motion.div>` from Framer Motion alongside global CS
 - **API Shielding**: Arcjet WAF protects against SQLi, XSS, and overly massive payloads on NextJS endpoints.
 - **Database Architecture**: Connects remotely to Neon serverless DB via secure connection pooling, storing no session data in the ML sub-system.
 
+### Testing Arcjet Protections
+
+You can verify the active Arcjet rules on the `/register` page by attempting to create an account with the following scenarios:
+
+#### 1. Disposable Emails (Should be DENIED)
+Arcjet maintains a real-time list of temporary/throwaway email providers. Try creating an account with these:
+* `testuser@mailinator.com`
+* `hacker@10minutemail.com`
+* `temp@guerrillamail.com`
+* `fake@yopmail.com`
+*(Expected error: "Disposable email addresses are not allowed.")*
+
+#### 2. No MX Records (Should be DENIED)
+This rule checks if the domain actually has mail servers configured to receive email. A fake domain won't.
+* `hello@thisdomaindefinitelydoesnotexist12345.xyz`
+* `admin@fakecompany999.local`
+*(Expected error: "Email domain has no MX records.")*
+
+#### 3. Invalid Formatting (Should be DENIED)
+Arcjet also checks for syntactical correctness before even checking the domain.
+* `just-a-random-string`
+* `missing-at-sign.com`
+* `@missing-local-part.com`
+*(Expected error: "Invalid email address.")*
+
+#### 4. Rate Limiting Test (Should be DENIED)
+You have a restrictive rate limit on the signup route (`max: 3` per `10m`). 
+To test this, try to register an account **4 times in a row** (even with a failing disposable email, the attempt still counts against the rate limit!). On the 4th attempt, you should see:
+*(Expected error: "Too many requests. Please try again later.")*
+
 ---
 
 ## 👥 Team

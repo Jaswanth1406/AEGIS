@@ -110,14 +110,19 @@ export default function RegisterPage() {
         email: form.email,
         password: form.password,
         name: form.name,
+      }, {
+        onError: (ctx) => {
+          // Arcjet returns { error: "Disposable email addresses are not allowed." }
+          // Better auth wraps this in ctx.error
+          const apiError = (ctx.error as any)?.error;
+          setErrors({ general: apiError || ctx.error.message || "Registration failed. Please check your details." });
+        },
+        onSuccess: () => {
+          window.location.href = "/dashboard";
+        }
       });
-      if (result.error) {
-        setErrors({ general: result.error.message || "Registration failed" });
-      } else {
-        window.location.href = "/dashboard";
-      }
-    } catch {
-      setErrors({ general: "An error occurred. Please try again." });
+    } catch (err: any) {
+      setErrors({ general: err?.message || err?.error || "An error occurred. Please try again." });
     } finally {
       setLoading(false);
     }

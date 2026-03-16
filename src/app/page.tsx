@@ -337,13 +337,11 @@ export default function HomePage() {
             <span className="text-accent-green text-sm font-semibold tracking-widest uppercase" style={{ fontFamily: "var(--font-space-mono), monospace" }}>BUILT WITH</span>
             <h2 className="text-3xl md:text-4xl font-bold text-text mt-4 mb-4" style={{ fontFamily: "var(--font-syne), sans-serif" }}>Enterprise-Grade Technology Stack</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { icon: <Server className="h-8 w-8" />, name: "Backend", tools: "Python + FastAPI", desc: "High-performance async APIs" },
               { icon: <Cpu className="h-8 w-8" />, name: "Machine Learning", tools: "Scikit-Learn", desc: "XGBoost, Isolation Forest, SHAP" },
-              { icon: <Radio className="h-8 w-8" />, name: "Streaming", tools: "Redis Streams", desc: "Real-time ingestion and processing" },
               { icon: <Monitor className="h-8 w-8" />, name: "Frontend", tools: "Next.js + React", desc: "Interactive dashboards" },
-              { icon: <Container className="h-8 w-8" />, name: "Infrastructure", tools: "Docker", desc: "Containerized deployments" },
               { icon: <Smartphone className="h-8 w-8" />, name: "Mobile", tools: "Java + Kotlin", desc: "Mobile application" },
             ].map((tech) => (
               <div key={tech.name} className="bg-bg p-5 rounded-xl border border-border text-center hover:border-accent-green/30 transition-all group">

@@ -5,7 +5,7 @@ import { AlertTriangle, Shield, Zap, CheckCircle, X, ChevronRight, Play } from "
 import { threats as initialThreats, playbooks, aiExplanations, generateNewThreat, type Threat, type AttackOrigin } from "@/lib/mock-data";
 import { BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer } from "recharts";
 import AttackGlobe from "@/components/dashboard-attack-globe";
-import { fetchDashboardStats, fetchThreats, executePlaybook as apiExecutePlaybook } from "@/lib/api-client";
+import { fetchDashboardStats, fetchThreats, fetchPlaybooks, executePlaybook as apiExecutePlaybook } from "@/lib/api-client";
 
 // Utility to generate deterministic coordinates from an IP string
 const generateIpCoordinates = (ip: string): [number, number] => {
@@ -180,6 +180,7 @@ function ThreatDrawer({ threat, onClose }: { threat: Threat | null; onClose: () 
 
 export default function DashboardPage() {
   const [threatList, setThreatList] = useState<Threat[]>([]);
+  const [playbookList, setPlaybookList] = useState<any[]>([]);
   const [selectedThreat, setSelectedThreat] = useState<Threat | null>(null);
   const [playbookStates, setPlaybookStates] = useState<Record<string, "idle" | "loading" | "done">>({});
   
@@ -201,10 +202,15 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [statsData, threatsData] = await Promise.all([
+        const [statsData, threatsData, playbooksData] = await Promise.all([
           fetchDashboardStats(),
-          fetchThreats(1, 20)
+          fetchThreats(1, 20),
+          fetchPlaybooks()
         ]);
+
+        if (playbooksData) {
+          setPlaybookList(playbooksData);
+        }
 
         if (threatsData.items && threatsData.items.length > 0) {
           // Map backend threats to frontend model
@@ -398,7 +404,12 @@ export default function DashboardPage() {
         <div className="bg-surface rounded-xl border border-border p-5">
           <h3 className="text-lg font-semibold text-text mb-4" style={{ fontFamily: "var(--font-syne), sans-serif" }}>Global Attack Map</h3>
           <div className="rounded-lg overflow-hidden bg-surface2" style={{ height: 400 }}>
-            <AttackGlobe attackOrigins={liveOrigins} protectedTargets={liveTargets} />
+            <AttackGlobe 
+              attackOrigins={liveOrigins} 
+              protectedTargets={liveTargets} 
+              activeThreats={threatList}
+              onThreatClick={(threat) => setSelectedThreat(threat)}
+            />
           </div>
           <div className="flex items-center gap-6 mt-3 text-xs text-muted">
             <div className="flex items-center gap-2">
@@ -452,7 +463,7 @@ export default function DashboardPage() {
         <div className="bg-surface rounded-xl border border-border p-5">
           <h3 className="text-lg font-semibold text-text mb-4" style={{ fontFamily: "var(--font-syne), sans-serif" }}>Response Playbooks</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {playbooks.map((pb) => {
+            {playbookList.slice(0, 4).map((pb) => {
               const state = playbookStates[pb.id] || "idle";
               return (
                 <div key={pb.id} className="bg-surface2 rounded-xl border border-border p-4 hover:border-accent-green/30 transition-all">

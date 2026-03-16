@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import type { AttackOrigin } from "@/lib/mock-data";
+import type { AttackOrigin, Threat } from "@/lib/mock-data";
 
 type PulseMesh = {
   mesh: THREE.Mesh;
@@ -11,12 +11,22 @@ type PulseMesh = {
   maxSize: number;
 };
 
+type CurvePulse = {
+  mesh: THREE.Mesh;
+  curve: THREE.Curve<THREE.Vector3>;
+  t: number;
+  speed: number;
+};
+
 type AttackGlobeProps = {
   attackOrigins: AttackOrigin[];
   protectedTargets: AttackOrigin[];
+  activeThreats?: Threat[];
+  onThreatClick?: (threat: Threat) => void;
 };
 
 const EARTH_SPECULAR_URL = "https://threejs.org/examples/textures/planets/earth_specular_2048.jpg";
+const EARTH_ATMOS_URL = "https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg";
 
 function latLonToVector3(longitude: number, latitude: number, radius: number) {
   const phi = (90 - latitude) * (Math.PI / 180);
@@ -47,15 +57,15 @@ function buildDottedMapTexture(image: HTMLImageElement | HTMLCanvasElement | Ima
   const imageData = context.getImageData(0, 0, width, height);
   const data = imageData.data;
 
-  // Clear canvas to a deep dark space background
-  context.fillStyle = "#010308";
+  // Clear canvas to a clean light background
+  context.fillStyle = "#e8ecf2";
   context.fillRect(0, 0, width, height);
 
-  // Set dot color mapping styles
-  context.fillStyle = "#4895ff";
+  // Set dot color mapping styles — emerald green on light background
+  context.fillStyle = "#0d9668";
 
   const step = 3;
-  const dotSize = 0.9; // radius
+  const dotSize = 1.0; // radius
 
   for (let y = 0; y < height; y += step) {
     for (let x = 0; x < width; x += step) {
@@ -64,10 +74,20 @@ function buildDottedMapTexture(image: HTMLImageElement | HTMLCanvasElement | Ima
       const isLand = data[i] < 128;
       
       if (isLand) {
-        context.globalAlpha = 0.6 + Math.random() * 0.4;
+        context.globalAlpha = 0.7 + Math.random() * 0.3;
         context.beginPath();
         context.arc(x, y, dotSize, 0, 2 * Math.PI);
         context.fill();
+      } else {
+        // Ocean dots for subtle texture
+        if (Math.random() < 0.15) {
+          context.globalAlpha = 0.08;
+          context.fillStyle = "#94a3b8";
+          context.beginPath();
+          context.arc(x, y, dotSize * 0.5, 0, 2 * Math.PI);
+          context.fill();
+          context.fillStyle = "#0d9668";
+        }
       }
     }
   }
@@ -80,8 +100,9 @@ function buildDottedMapTexture(image: HTMLImageElement | HTMLCanvasElement | Ima
   return texture;
 }
 
-export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackGlobeProps) {
+export default function AttackGlobe({ attackOrigins, protectedTargets, activeThreats = [], onThreatClick }: AttackGlobeProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; name: string; type: string } | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -92,30 +113,36 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
     const scene = new THREE.Scene();
 
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-    camera.position.set(0, 0, 3.2);
+    camera.position.set(0, 0, 4.3);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
+    renderer.setClearColor(0xf0f2f5, 0);
     renderer.domElement.style.width = "100%";
     renderer.domElement.style.height = "100%";
     renderer.domElement.style.display = "block";
     container.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
     keyLight.position.set(5, 3, 5);
     scene.add(keyLight);
 
-    const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    fillLight.position.set(-3, 2, -3);
+    scene.add(fillLight);
+
+    const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
     backLight.position.set(-5, -3, -5);
     scene.add(backLight);
 
     const globeGroup = new THREE.Group();
+    const hitboxesGroup = new THREE.Group();
     scene.add(globeGroup);
+    globeGroup.add(hitboxesGroup);
     globeGroup.position.set(-0.015, 0.08, 0);
     globeGroup.rotation.y = -0.55;
     globeGroup.rotation.x = 0.12;
@@ -132,13 +159,13 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
     const earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
     globeGroup.add(earthMesh);
 
-    // Network wireframe overlay for that cyber look
+    // Network wireframe overlay — subtle gray for light theme
     const wireframeGeometry = new THREE.IcosahedronGeometry(globeRadius + 0.005, 18);
     const wireframeMaterial = new THREE.MeshBasicMaterial({
-      color: 0x4895ff,
+      color: 0x94a3b8,
       wireframe: true,
       transparent: true,
-      opacity: 0.1,
+      opacity: 0.08,
     });
     const wireframeMesh = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
     globeGroup.add(wireframeMesh);
@@ -169,7 +196,11 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
     globeGroup.add(markerGroup);
 
     const pulses: PulseMesh[] = [];
-    const markerColors = [0xf43f5e, 0x10b981, 0x3b82f6, 0xd946ef, 0xa855f7];
+    const curvePulses: CurvePulse[] = [];
+    
+    // Strict colors: Red for origin, Blue for target
+    const COLOR_ORIGIN = 0xe53e5c; 
+    const COLOR_TARGET = 0x3570e8;
 
     const createMarker = (
       loc: AttackOrigin,
@@ -209,6 +240,14 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
           maxSize: options.isTarget ? 6 : 4
         });
       }
+
+      // Invisible Hitbox for Raycasting
+      const hitGeometry = new THREE.SphereGeometry(0.04, 8, 8);
+      const hitMaterial = new THREE.MeshBasicMaterial({ visible: false });
+      const hitMesh = new THREE.Mesh(hitGeometry, hitMaterial);
+      hitMesh.position.copy(markerPosition);
+      hitMesh.userData = { name: loc.name, type: options.isTarget ? 'Target' : 'Origin' };
+      hitboxesGroup.add(hitMesh);
       
       return options.color;
     };
@@ -216,41 +255,61 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
     const originColorMap = new Map<AttackOrigin, number>();
 
     attackOrigins.forEach((origin) => {
-      const randomColor = markerColors[Math.floor(Math.random() * markerColors.length)];
-      originColorMap.set(origin, randomColor);
-      createMarker(origin, { color: randomColor, size: 0.028 });
+      originColorMap.set(origin, COLOR_ORIGIN);
+      createMarker(origin, { color: COLOR_ORIGIN, size: 0.028 });
     });
 
     protectedTargets.forEach((target) => {
-      const randomColor = markerColors[Math.floor(Math.random() * markerColors.length)];
-      originColorMap.set(target, randomColor);
-      createMarker(target, { color: 0x3570e8, size: 0.024, isTarget: true });
+      originColorMap.set(target, COLOR_TARGET);
+      createMarker(target, { color: COLOR_TARGET, size: 0.024, isTarget: true });
     });
 
-    attackOrigins.forEach((origin) => {
-      protectedTargets.forEach((target) => {
-        const [originLon, originLat] = origin.coordinates;
-        const [targetLon, targetLat] = target.coordinates;
+    activeThreats.forEach((threat) => {
+      const origin = attackOrigins.find(o => o.name === threat.sourceIP);
+      const target = protectedTargets.find(t => t.name === threat.targetSystem);
+      if (!origin || !target) return;
 
-        const start = latLonToVector3(originLon, originLat, globeRadius + 0.01);
-        const end = latLonToVector3(targetLon, targetLat, globeRadius + 0.01);
+      const [originLon, originLat] = origin.coordinates;
+      const [targetLon, targetLat] = target.coordinates;
 
-        const midpoint = start.clone().add(end).multiplyScalar(0.5);
-        const arcHeight = 0.2 + start.distanceTo(end) * 0.15;
-        const control = midpoint.normalize().multiplyScalar(globeRadius + arcHeight);
+      const start = latLonToVector3(originLon, originLat, globeRadius + 0.01);
+      const end = latLonToVector3(targetLon, targetLat, globeRadius + 0.01);
 
-        const curve = new THREE.QuadraticBezierCurve3(start, control, end);
-        const points = curve.getPoints(70);
-        const routeGeometry = new THREE.BufferGeometry().setFromPoints(points);
-        
-        const pathColor = originColorMap.get(origin) || 0xe53e5c;
-        const routeMaterial = new THREE.LineBasicMaterial({
-          color: pathColor,
-          transparent: true,
-          opacity: 0.42,
-        });
-        const routeLine = new THREE.Line(routeGeometry, routeMaterial);
-        routeGroup.add(routeLine);
+      const midpoint = start.clone().add(end).multiplyScalar(0.5);
+      const arcHeight = 0.2 + start.distanceTo(end) * 0.15;
+      const control = midpoint.normalize().multiplyScalar(globeRadius + arcHeight);
+
+      const curve = new THREE.QuadraticBezierCurve3(start, control, end);
+      const pathColor = COLOR_ORIGIN;
+
+      // Visible arc
+      const tubeGeometry = new THREE.TubeGeometry(curve, 64, 0.005, 6, false);
+      const tubeMaterial = new THREE.MeshBasicMaterial({
+        color: pathColor,
+        transparent: true,
+        opacity: 0.35,
+      });
+      const tubeMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
+      routeGroup.add(tubeMesh);
+
+      // Invisible hitbox arc (wider for easier clicking)
+      const hitTubeGeometry = new THREE.TubeGeometry(curve, 32, 0.025, 6, false);
+      const hitTubeMaterial = new THREE.MeshBasicMaterial({ visible: false });
+      const hitTubeMesh = new THREE.Mesh(hitTubeGeometry, hitTubeMaterial);
+      hitTubeMesh.userData = { type: 'Arc', threat };
+      hitboxesGroup.add(hitTubeMesh);
+
+      // Animated pulse dot
+      const pulseGeom = new THREE.SphereGeometry(0.016, 12, 12);
+      const pulseMat = new THREE.MeshBasicMaterial({ color: pathColor });
+      const pulseMesh = new THREE.Mesh(pulseGeom, pulseMat);
+      routeGroup.add(pulseMesh);
+      
+      curvePulses.push({
+        mesh: pulseMesh,
+        curve: curve,
+        t: Math.random(),
+        speed: 0.003 + Math.random() * 0.004,
       });
     });
 
@@ -285,6 +344,19 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
     };
 
     const onPointerMove = (event: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const pointer = new THREE.Vector2();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(hitboxesGroup.children, false);
+      
+      if (!isDragging) {
+        renderer.domElement.style.cursor = intersects.length > 0 ? "pointer" : "grab";
+      }
+
       if (!isDragging) {
         return;
       }
@@ -299,13 +371,44 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
       previousY = event.clientY;
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = (event: PointerEvent) => {
       isDragging = false;
       renderer.domElement.style.cursor = "grab";
+      
+      // If we didn't drag much, treat as a click
+      if (Math.abs(event.clientX - previousX) < 5 && Math.abs(event.clientY - previousY) < 5) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        const pointer = new THREE.Vector2();
+        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(pointer, camera);
+
+        const intersects = raycaster.intersectObjects(hitboxesGroup.children, false);
+        if (intersects.length > 0) {
+          const hit = intersects[0].object;
+          
+          if (hit.userData.type === 'Arc' && hit.userData.threat && onThreatClick) {
+            onThreatClick(hit.userData.threat);
+            setTooltip(null);
+          } else {
+            setTooltip({
+              visible: true,
+              x: event.clientX - rect.left,
+              y: event.clientY - rect.top,
+              name: hit.userData.name,
+              type: hit.userData.type,
+            });
+          }
+        } else {
+          setTooltip(null);
+        }
+      }
     };
 
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
 
@@ -330,6 +433,14 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
         const pulseMaterial = pulse.mesh.material as THREE.MeshBasicMaterial;
         // Fade out as it expands
         pulseMaterial.opacity = (1 - pulse.t) * 0.8;
+      });
+
+      curvePulses.forEach((pulse) => {
+        pulse.t += pulse.speed;
+        if (pulse.t > 1) {
+          pulse.t = 0;
+        }
+        pulse.mesh.position.copy(pulse.curve.getPointAt(pulse.t));
       });
 
       renderer.render(scene, camera);
@@ -365,5 +476,29 @@ export default function AttackGlobe({ attackOrigins, protectedTargets }: AttackG
     };
   }, [attackOrigins, protectedTargets]);
 
-  return <div ref={containerRef} className="w-full h-full" aria-label="Interactive global attack globe" />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" aria-label="Interactive global attack globe" />
+      
+      {/* Tooltip Layer */}
+      {tooltip && tooltip.visible && (
+        <div 
+          className="absolute z-10 bg-surface/95 backdrop-blur-md border border-border shadow-lg rounded-lg p-3 pointer-events-none animate-fade-in"
+          style={{ 
+            left: tooltip.x, 
+            top: tooltip.y - 10,
+            transform: 'translate(-50%, -100%)' // Center above cursor
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <div className={`w-2 h-2 rounded-full ${tooltip.type === 'Target' ? 'bg-accent-blue' : 'bg-accent-red'}`}></div>
+            <span className="text-xs font-semibold text-muted uppercase tracking-wider">{tooltip.type}</span>
+          </div>
+          <div className="text-sm font-medium text-text" style={{ fontFamily: "var(--font-space-mono), monospace" }}>
+            {tooltip.name}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

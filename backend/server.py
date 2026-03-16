@@ -1,10 +1,10 @@
-"""
-AEGIS AI — FastAPI Inference Server
-Real-time threat detection API.
-"""
 import os
 import sys
-from fastapi import FastAPI, BackgroundTasks
+import uuid
+import time
+from datetime import datetime
+from typing import List, Optional
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import urllib.request
@@ -111,6 +111,97 @@ class HealthResponse(BaseModel):
     version: str
 
 
+# ─── Playbook Models ────────────────────────────────
+class PlaybookStep(BaseModel):
+    name: str
+    description: str
+    status: str = "pending"
+
+class Playbook(BaseModel):
+    id: str
+    name: str
+    icon: str
+    description: str
+    actions: List[str]
+    steps: List[PlaybookStep]
+
+class PlaybookExecutionRequest(BaseModel):
+    threat_id: str
+
+class PlaybookLog(BaseModel):
+    id: str
+    playbook_id: str
+    playbook_name: str
+    threat_id: str
+    timestamp: str
+    status: str
+
+# ─── Settings Models ────────────────────────────────
+class AppSettings(BaseModel):
+    session_timeout: int = 30
+    dark_mode: bool = True
+
+
+# ─── In-Memory Data ─────────────────────────────────
+playbooks_db = [
+    {
+        "id": "PB-001",
+        "name": "Compromised Account",
+        "icon": "🔐",
+        "description": "Lock · Reset · Alert",
+        "actions": ["Lock Account", "Reset Credentials", "Alert Team"],
+        "steps": [
+            {"name": "Observe", "description": "Analyze login patterns and confirm compromise indicators"},
+            {"name": "Isolate", "description": "Lock the compromised account and revoke all active sessions"},
+            {"name": "Remediate", "description": "Reset password, enable MFA, and scan for persistence mechanisms"},
+            {"name": "Validate", "description": "Verify account security and restore access with monitoring"},
+        ],
+    },
+    {
+        "id": "PB-002",
+        "name": "Malicious Traffic",
+        "icon": "🚫",
+        "description": "Block IP · Firewall · Log",
+        "actions": ["Block IP", "Update Firewall", "Log Evidence"],
+        "steps": [
+            {"name": "Observe", "description": "Capture traffic samples and identify malicious patterns"},
+            {"name": "Isolate", "description": "Block source IP at firewall and update WAF rules"},
+            {"name": "Remediate", "description": "Scan affected systems and patch vulnerable services"},
+            {"name": "Validate", "description": "Confirm traffic is blocked and monitor for evasion attempts"},
+        ],
+    },
+    {
+        "id": "PB-003",
+        "name": "Malware Behavior",
+        "icon": "🦠",
+        "description": "Kill · Isolate · Scan",
+        "actions": ["Kill Process", "Isolate Host", "Full Scan"],
+        "steps": [
+            {"name": "Observe", "description": "Identify malicious process and capture memory dump"},
+            {"name": "Isolate", "description": "Network-isolate the affected host and kill malicious processes"},
+            {"name": "Remediate", "description": "Run full antimalware scan and remove persistence mechanisms"},
+            {"name": "Validate", "description": "Verify system integrity and reconnect to network with monitoring"},
+        ],
+    },
+    {
+        "id": "PB-004",
+        "name": "Network Recon",
+        "icon": "🕵️",
+        "description": "Deceive · Redirect · Collect",
+        "actions": ["Deploy Honeypot", "Redirect Traffic", "Collect Intel"],
+        "steps": [
+            {"name": "Observe", "description": "Monitor scanning patterns and identify reconnaissance tools"},
+            {"name": "Isolate", "description": "Redirect attacker to honeypot environment for intelligence gathering"},
+            {"name": "Remediate", "description": "Block scanner IPs and harden exposed services"},
+            {"name": "Validate", "description": "Review collected intelligence and update threat indicators"},
+        ],
+    },
+]
+
+playbook_logs = []
+settings_db = AppSettings()
+
+
 # ─── Endpoints ────────────────────────────────────────
 @app.get("/", response_model=HealthResponse)
 async def health():
@@ -145,6 +236,66 @@ async def predict(request: ThreatPredictionRequest, background_tasks: Background
 async def get_features():
     """List expected input features."""
     return {"features": SELECTED_FEATURES, "count": len(SELECTED_FEATURES)}
+
+
+# ─── Playbook Endpoints ──────────────────────────────
+@app.get("/api/playbooks", response_model=List[Playbook])
+async def list_playbooks():
+    return playbooks_db
+
+@app.post("/api/playbooks", response_model=Playbook)
+async def create_playbook(playbook: Playbook):
+    playbooks_db.append(playbook.dict())
+    return playbook
+
+@app.get("/api/playbooks/{playbook_id}", response_model=Playbook)
+async def get_playbook(playbook_id: str):
+    for pb in playbooks_db:
+        if pb["id"] == playbook_id:
+            return pb
+    raise HTTPException(status_code=404, detail="Playbook not found")
+
+@app.put("/api/playbooks/{playbook_id}", response_model=Playbook)
+async def update_playbook(playbook_id: str, updated_pb: Playbook):
+    for i, pb in enumerate(playbooks_db):
+        if pb["id"] == playbook_id:
+            playbooks_db[i] = updated_pb.dict()
+            return updated_pb
+    raise HTTPException(status_code=404, detail="Playbook not found")
+
+@app.get("/api/playbooks/logs", response_model=List[PlaybookLog])
+async def list_playbook_logs():
+    return playbook_logs
+
+@app.post("/api/playbooks/{playbook_id}/execute")
+async def execute_playbook(playbook_id: str, request: PlaybookExecutionRequest):
+    playbook = None
+    for pb in playbooks_db:
+        if pb["id"] == playbook_id:
+            playbook = pb
+            break
+    
+    if not playbook:
+        raise HTTPException(status_code=404, detail="Playbook not found")
+    
+    # Mock execution log
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "playbook_id": playbook_id,
+        "playbook_name": playbook["name"],
+        "threat_id": request.threat_id,
+        "timestamp": datetime.now().isoformat(),
+        "status": "completed"
+    }
+    playbook_logs.append(log_entry)
+    
+    return {"message": f"Executing playbook {playbook['name']} for threat {request.threat_id}", "log": log_entry}
+
+
+# ─── Settings Endpoints ────────────────────────────────
+@app.get("/api/settings", response_model=AppSettings)
+async def get_settings():
+    return settings_db
 
 
 if __name__ == "__main__":

@@ -1,26 +1,64 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AlertTriangle, CheckCircle, Play, RotateCw, Loader2 } from "lucide-react";
-import { playbooks, generateNewThreat, type Threat, type Playbook } from "@/lib/mock-data";
+import { generateNewThreat, type Threat, type Playbook } from "@/lib/mock-data";
+import { fetchPlaybooks, executePlaybook } from "@/lib/api-client";
+
+interface PlaybookStepState {
+  name: string;
+  description: string;
+  status: "pending" | "running" | "completed";
+}
 
 interface PlaybookState {
-  steps: { name: string; description: string; status: "pending" | "running" | "completed" }[];
+  steps: PlaybookStepState[];
   expanded: boolean;
 }
 
 export default function PlaybooksPage() {
-  const [playbookStates, setPlaybookStates] = useState<Record<string, PlaybookState>>(() => {
-    const initial: Record<string, PlaybookState> = {};
-    playbooks.forEach((pb) => {
-      initial[pb.id] = { steps: pb.steps.map((s) => ({ ...s, status: "pending" as const })), expanded: false };
-    });
-    return initial;
-  });
+  const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
+  const [playbookStates, setPlaybookStates] = useState<Record<string, PlaybookState>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [simulating, setSimulating] = useState(false);
   const [simulatedThreat, setSimulatedThreat] = useState<Threat | null>(null);
   const [simulatingPlaybookId, setSimulatingPlaybookId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadPlaybooks() {
+      try {
+        setLoading(true);
+        const data = await fetchPlaybooks();
+        setPlaybooks(data);
+        
+        const initial: Record<string, PlaybookState> = {};
+        data.forEach((pb: any) => {
+          const steps = (pb.steps || []).map((s: any) => {
+            // Handle if the step is just a string (common in some API versions)
+            if (typeof s === "string") {
+              return { name: s, description: "", status: "pending" as const };
+            }
+            // Handle if it is an object with varying field names
+            return {
+              name: s.name || s.Name || s.label || s.title || s.text || s.step || s.action || "Unknown Step",
+              description: s.description || s.Description || s.detail || s.summary || "",
+              status: "pending" as const 
+            };
+          });
+          initial[pb.id] = { steps, expanded: false };
+        });
+        setPlaybookStates(initial);
+      } catch (err) {
+        console.error("Failed to load playbooks:", err);
+        setError("Could not connect to the Threat Management Platform API.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPlaybooks();
+  }, []);
 
   const toggleExpand = (id: string) => {
     setPlaybookStates((prev) => ({
@@ -29,17 +67,26 @@ export default function PlaybooksPage() {
     }));
   };
 
-  const runPlaybook = useCallback((id: string) => {
+  const runPlaybook = useCallback(async (id: string) => {
     const state = playbookStates[id];
     if (!state) return;
 
     // Reset steps
     setPlaybookStates((prev) => ({
       ...prev,
-      [id]: { ...prev[id], expanded: true, steps: prev[id].steps.map((s) => ({ ...s, status: "pending" as const })) },
+      [id]: { ...prev[id], expanded: true, steps: (prev[id].steps || []).map((s) => ({ ...s, status: "pending" as const })) },
     }));
 
-    // Animate steps
+    // If we have a simulated threat, execute on backend
+    if (simulatedThreat) {
+      try {
+        await executePlaybook(id, simulatedThreat.id);
+      } catch (err) {
+        console.error("Execution failed:", err);
+      }
+    }
+
+    // Animate steps for visual feedback
     state.steps.forEach((_, i) => {
       setTimeout(() => {
         setPlaybookStates((prev) => ({
@@ -67,14 +114,14 @@ export default function PlaybooksPage() {
         }));
       }, (i + 1) * 1500);
     });
-  }, [playbookStates]);
+  }, [playbookStates, simulatedThreat]);
 
   const resetPlaybook = (id: string) => {
     setPlaybookStates((prev) => ({
       ...prev,
       [id]: {
         ...prev[id],
-        steps: prev[id].steps.map((s) => ({ ...s, status: "pending" as const })),
+        steps: (prev[id]?.steps || []).map((s) => ({ ...s, status: "pending" as const })),
       },
     }));
   };
@@ -85,15 +132,17 @@ export default function PlaybooksPage() {
     setSimulatedThreat(threat);
 
     // Pick a random playbook
-    const pbIndex = Math.floor(Math.random() * playbooks.length);
-    const pbId = playbooks[pbIndex].id;
-    setSimulatingPlaybookId(pbId);
+    if (playbooks.length > 0) {
+      const pbIndex = Math.floor(Math.random() * playbooks.length);
+      const pbId = playbooks[pbIndex].id;
+      setSimulatingPlaybookId(pbId);
 
-    // Auto-expand and run that playbook after a delay
-    setTimeout(() => {
-      setSimulating(false);
-      runPlaybook(pbId);
-    }, 2000);
+      // Auto-expand and run that playbook after a delay
+      setTimeout(() => {
+        setSimulating(false);
+        runPlaybook(pbId);
+      }, 2000);
+    }
   };
 
   const getStepIcon = (status: string) => {
@@ -101,6 +150,34 @@ export default function PlaybooksPage() {
     if (status === "running") return <Loader2 className="h-5 w-5 text-accent-blue animate-spin" />;
     return <div className="w-5 h-5 rounded-full border-2 border-border" />;
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <Loader2 className="h-10 w-10 text-accent-green animate-spin" />
+        <p className="text-muted">Loading playbooks from Platform API...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-accent-red/5 border border-accent-red/30 rounded-xl p-8 flex flex-col items-center text-center space-y-4">
+        <AlertTriangle className="h-12 w-12 text-accent-red" />
+        <div>
+          <h2 className="text-xl font-bold text-text">Connection Error</h2>
+          <p className="text-muted mt-2">{error}</p>
+          <p className="text-xs text-muted mt-4">Platform API URL: http://11.12.6.240:8000</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-6 py-2 bg-accent-red text-white rounded-lg font-medium hover:bg-accent-red/90 transition-all font-display"
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 fade-in">
@@ -152,8 +229,8 @@ export default function PlaybooksPage() {
                       <h3 className="text-lg font-semibold text-text">{pb.name}</h3>
                       <p className="text-sm text-muted mt-0.5">{pb.description}</p>
                       <div className="flex flex-wrap gap-2 mt-3">
-                        {pb.actions.map((action) => (
-                          <span key={action} className="text-xs px-2 py-1 rounded-lg bg-surface2 border border-border text-muted">{action}</span>
+                        {pb.actions?.map((action, i) => (
+                          <span key={`${action}-${i}`} className="text-xs px-2 py-1 rounded-lg bg-surface2 border border-border text-muted">{action}</span>
                         ))}
                       </div>
                     </div>
@@ -169,8 +246,8 @@ export default function PlaybooksPage() {
                 <div className="px-6 pb-6 border-t border-border pt-4 space-y-4 fade-in">
                   {/* Progress Stepper */}
                   <div className="flex items-center justify-between">
-                    {state.steps.map((step, i) => (
-                      <div key={step.name} className="flex items-center flex-1">
+                    {state.steps?.map((step, i) => (
+                      <div key={`${step.name}-${i}`} className="flex items-center flex-1">
                         <div className="flex flex-col items-center">
                           {getStepIcon(step.status)}
                           <span className={`text-[10px] mt-1 font-medium ${step.status === "completed" ? "text-accent-green" : step.status === "running" ? "text-accent-blue" : "text-muted"}`}>
@@ -186,8 +263,8 @@ export default function PlaybooksPage() {
 
                   {/* Step Details */}
                   <div className="space-y-2">
-                    {state.steps.map((step) => (
-                      <div key={step.name} className={`flex items-start gap-3 p-3 rounded-lg transition-all ${step.status === "running" ? "bg-accent-blue/5 border border-accent-blue/20" : step.status === "completed" ? "bg-accent-green/5 border border-accent-green/20" : "bg-surface2 border border-transparent"}`}>
+                    {state.steps?.map((step: any, i) => (
+                      <div key={`detail-${step.name}-${i}`} className={`flex items-start gap-3 p-3 rounded-lg transition-all ${step.status === "running" ? "bg-accent-blue/5 border border-accent-blue/20" : step.status === "completed" ? "bg-accent-green/5 border border-accent-green/20" : "bg-surface2 border border-transparent"}`}>
                         {getStepIcon(step.status)}
                         <div>
                           <p className="text-sm font-medium text-text">{step.name}</p>
@@ -225,3 +302,4 @@ export default function PlaybooksPage() {
     </div>
   );
 }
+

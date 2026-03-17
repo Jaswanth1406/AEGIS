@@ -21,15 +21,20 @@ from models.explainer import ThreatExplainer
 from evaluation.evaluate import evaluate_model, evaluate_anomaly_detector
 
 
-def train():
+def train(custom_csv_path: str = None, output_dir: str = None):
     start = time.time()
+    if output_dir is None:
+        from config import MODEL_DIR
+        output_dir = MODEL_DIR
 
     print("=" * 60)
     print("🛡️  AEGIS AI — ML Pipeline Training")
     print("=" * 60)
 
     # ─── Step 1: Preprocess ──────────────────────────────
-    X_train, X_test, y_train, y_test, scaler, le, df = preprocess()
+    X_train, X_test, y_train, y_test, scaler, le, df = preprocess(
+        custom_csv_path=custom_csv_path, output_dir=output_dir
+    )
 
     # ─── Step 2: Isolation Forest (Anomaly Detection) ────
     print("\n" + "=" * 60)
@@ -42,7 +47,7 @@ def train():
 
     anomaly_detector = AnomalyDetector()
     anomaly_detector.train(X_benign)
-    anomaly_detector.save()
+    anomaly_detector.save(output_dir=output_dir)
 
     # Evaluate anomaly detector
     anomaly_preds = anomaly_detector.is_anomaly(X_test)
@@ -55,11 +60,11 @@ def train():
 
     classifier = ThreatClassifier()
     classifier.train(X_train, y_train)
-    classifier.save()
+    classifier.save(output_dir=output_dir)
 
-    # Evaluate classifier
+    # Evaluate classifier using the classes found in the dataset
     y_pred = classifier.predict(X_test)
-    eval_results = evaluate_model(y_test, y_pred, ATTACK_CLASSES)
+    eval_results = evaluate_model(y_test, y_pred, list(le.classes_))
 
     # ─── Step 4: Threat DNA Fingerprinting ───────────────
     print("\n" + "=" * 60)
@@ -78,12 +83,12 @@ def train():
         for i in range(len(fingerprints)):
             threat_dna.store_fingerprint(
                 fingerprints[i],
-                ATTACK_CLASSES[attack_labels[i]],
+                list(le.classes_)[attack_labels[i]],
                 f"DNA-TRAIN-{i:04d}",
             )
         print(f"  Stored {len(fingerprints)} threat fingerprints")
 
-    threat_dna.save()
+    threat_dna.save(output_dir=output_dir)
 
     # ─── Step 5: SHAP Explainability ─────────────────────
     print("\n" + "=" * 60)
@@ -92,12 +97,12 @@ def train():
 
     explainer = ThreatExplainer()
     explainer.fit(classifier.model, X_train[:1000])
-    explainer.save()
+    explainer.save(output_dir=output_dir)
 
     # Demo explanation on a few test samples
     sample_explanations = explainer.explain(X_test[:3], top_n=5)
     for i, exp in enumerate(sample_explanations):
-        pred_class = ATTACK_CLASSES[y_pred[i]]
+        pred_class = list(le.classes_)[y_pred[i]]
         print(f"\n  Sample {i+1} (predicted: {pred_class}):")
         for feat in exp["top_features"]:
             bar = "█" * int(feat["importance"] * 20)
@@ -111,9 +116,9 @@ def train():
     print(f"  Time elapsed:  {elapsed:.1f}s")
     print(f"  Accuracy:      {eval_results['accuracy']:.4f}")
     print(f"  F1 Score:      {eval_results['f1_score']:.4f}")
-    print(f"  Models saved:  backend/saved_models/")
+    print(f"  Models saved:  {output_dir}")
     print(f"  Features:      {len(SELECTED_FEATURES)}")
-    print(f"  Classes:       {ATTACK_CLASSES}")
+    print(f"  Classes:       {list(le.classes_)}")
     print()
 
     return eval_results

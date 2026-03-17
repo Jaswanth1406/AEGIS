@@ -21,8 +21,15 @@ from config import (
 )
 
 
-def load_all_csvs() -> pd.DataFrame:
-    """Load and concatenate all CIC-IDS2017 CSV files."""
+def load_all_csvs(custom_csv_path: str = None) -> pd.DataFrame:
+    """Load and concatenate all CIC-IDS2017 CSV files, or load a single custom CSV."""
+    if custom_csv_path and os.path.exists(custom_csv_path):
+        print(f"  Loading custom dataset: {custom_csv_path}...")
+        df = pd.read_csv(custom_csv_path, low_memory=False)
+        df.columns = df.columns.str.strip()
+        print(f"  Total rows loaded: {len(df):,}")
+        return df
+
     frames = []
     for fname in DATASET_FILES:
         filepath = os.path.join(DATASET_DIR, fname)
@@ -61,14 +68,45 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def map_labels(df: pd.DataFrame) -> pd.DataFrame:
-    """Map raw CIC-IDS2017 labels to simplified categories."""
-    df["Label"] = df["Label"].str.strip().map(LABEL_MAP)
+    """Map raw labels to simplified categories, with fuzzy matching for custom datasets."""
+    
+    def fuzzy_match(label):
+        if pd.isna(label):
+            return np.nan
+            
+        label = str(label).strip()
+        # 1. Try exact map (fastest for CIC-IDS2017)
+        if label in LABEL_MAP:
+            return LABEL_MAP[label]
+            
+        # 2. Try fuzzy keyword map (generalizes to user datasets)
+        lower_label = label.lower()
+        if any(w in lower_label for w in ["benign", "normal", "legitimate", "safe"]):
+            return "benign"
+        if any(w in lower_label for w in ["bot", "botnet"]):
+            return "botnet"
+        if any(w in lower_label for w in ["brute", "patator", "hydra", "crack"]):
+            return "brute_force"
+        if any(w in lower_label for w in ["dos", "ddos", "flood", "slowloris", "hulk", "goldeneye"]):
+            return "ddos"
+        if any(w in lower_label for w in ["infiltrat", "backdoor", "shell", "drop"]):
+            return "infiltration"
+        if any(w in lower_label for w in ["scan", "nmap", "recon", "sweep"]):
+            return "port_scan"
+        if any(w in lower_label for w in ["web", "sql", "xss", "injection", "rce", "lfi"]):
+            return "web_attack"
+            
+        # 3. No match found -> drop it
+        return np.nan
+
+    df["Label"] = df["Label"].apply(fuzzy_match)
+    
     # Drop unmapped labels
     before = len(df)
     df.dropna(subset=["Label"], inplace=True)
     after = len(df)
     if before != after:
-        print(f"  Dropped {before - after:,} rows with unmapped labels")
+        print(f"  Dropped {before - after:,} rows with unmapped or unknown labels")
     
     print(f"\n  Label distribution:")
     for label, count in df["Label"].value_counts().items():
@@ -94,10 +132,13 @@ def stratified_sample(df: pd.DataFrame, n: int = SAMPLE_SIZE) -> pd.DataFrame:
     return sampled
 
 
-def preprocess(sample: bool = True):
+def preprocess(sample: bool = True, custom_csv_path: str = None, output_dir: str = None):
     """Full preprocessing pipeline. Returns X_train, X_test, y_train, y_test, scaler, label_encoder."""
+    if output_dir is None:
+        output_dir = MODEL_DIR
+
     print("\n🔄 Step 1: Loading CSVs...")
-    df = load_all_csvs()
+    df = load_all_csvs(custom_csv_path)
 
     print("\n🔄 Step 2: Cleaning data...")
     df = clean_data(df)
@@ -113,10 +154,11 @@ def preprocess(sample: bool = True):
     X = df[SELECTED_FEATURES].values
     y_raw = df["Label"].values
 
-    # Encode labels
     le = LabelEncoder()
-    le.classes_ = np.array(ATTACK_CLASSES)
-    y = le.transform(y_raw)
+    y = le.fit_transform(y_raw)
+    
+    # Optional: explicitly map 'Benign' to 0 if we want consistency
+    # But for a custom model from scratch, dynamic encoding is safest.
 
     # Normalize features
     print("\n🔄 Step 5: Normalizing features...")
@@ -131,9 +173,10 @@ def preprocess(sample: bool = True):
     print(f"  Train: {len(X_train):,}  |  Test: {len(X_test):,}")
 
     # Save scaler and label encoder
-    joblib.dump(scaler, os.path.join(MODEL_DIR, "scaler.joblib"))
-    joblib.dump(le, os.path.join(MODEL_DIR, "label_encoder.joblib"))
-    print("  ✅ Saved scaler and label encoder")
+    os.makedirs(output_dir, exist_ok=True)
+    joblib.dump(scaler, os.path.join(output_dir, "scaler.joblib"))
+    joblib.dump(le, os.path.join(output_dir, "label_encoder.joblib"))
+    print(f"  ✅ Saved scaler and label encoder to {output_dir}")
 
     return X_train, X_test, y_train, y_test, scaler, le, df
 

@@ -9,7 +9,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASET_DIR = os.path.join(BASE_DIR, "..", "datasets")
 MODEL_DIR = os.path.join(BASE_DIR, "saved_models")
 
+CUSTOM_DATASET_DIR = os.path.join(BASE_DIR, "data", "custom_dataset")
+CUSTOM_MODEL_DIR = os.path.join(BASE_DIR, "saved_models_custom")
+
 os.makedirs(MODEL_DIR, exist_ok=True)
+os.makedirs(CUSTOM_DATASET_DIR, exist_ok=True)
+os.makedirs(CUSTOM_MODEL_DIR, exist_ok=True)
 
 # Dataset files (CIC-IDS2017)
 DATASET_FILES = [

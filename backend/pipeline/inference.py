@@ -29,13 +29,15 @@ class InferencePipeline:
         self.threat_dna = ThreatDNA()
         self.explainer = ThreatExplainer()
 
-    def load_models(self):
-        """Load all saved models."""
-        print("📂 Loading models...")
-        self.scaler = joblib.load(os.path.join(MODEL_DIR, "scaler.joblib"))
-        self.anomaly_detector.load()
-        self.classifier.load()
-        self.threat_dna.load()
+    def load_models(self, model_dir: str = None):
+        """Load all saved models from a specific directory."""
+        if model_dir is None:
+            model_dir = MODEL_DIR
+        print(f"📂 Loading models from {model_dir}...")
+        self.scaler = joblib.load(os.path.join(model_dir, "scaler.joblib"))
+        self.anomaly_detector.load(output_dir=model_dir)
+        self.classifier.load(output_dir=model_dir)
+        self.threat_dna.load(output_dir=model_dir)
         self.explainer.fit(self.classifier.model, None)  # TreeExplainer doesn't need data
         print("✅ All models loaded\n")
 

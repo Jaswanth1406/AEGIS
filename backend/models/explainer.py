@@ -64,12 +64,15 @@ class ThreatExplainer:
 
         return explanations
 
-    def save(self):
-        path = os.path.join(MODEL_DIR, "shap_explainer.joblib")
+    def save(self, output_dir: str = None):
+        if output_dir is None: output_dir = MODEL_DIR
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, "shap_explainer.joblib")
         joblib.dump(self.explainer, path)
         print(f"  💾 Saved SHAP explainer → {path}")
 
-    def load(self):
-        path = os.path.join(MODEL_DIR, "shap_explainer.joblib")
+    def load(self, output_dir: str = None):
+        if output_dir is None: output_dir = MODEL_DIR
+        path = os.path.join(output_dir, "shap_explainer.joblib")
         self.explainer = joblib.load(path)
         print(f"  📂 Loaded SHAP explainer ← {path}")

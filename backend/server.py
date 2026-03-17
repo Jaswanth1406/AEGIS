@@ -4,16 +4,20 @@ import uuid
 import time
 import threading
 import collections
+import shutil
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import urllib.request
 import json
+from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import SELECTED_FEATURES
+# Load the .env file from the root directory
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+from config import SELECTED_FEATURES, CUSTOM_DATASET_DIR, CUSTOM_MODEL_DIR, MODEL_DIR
 from pipeline.inference import InferencePipeline
 
 app = FastAPI(
@@ -25,7 +29,7 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,13 +37,18 @@ app.add_middleware(
 
 # Load models on startup
 pipeline = InferencePipeline()
-
+active_model_type = "general"
+is_training_custom_model = False
 
 @app.on_event("startup")
 async def startup():
-    pipeline.load_models()
+    if active_model_type == "general":
+        pipeline.load_models(MODEL_DIR)
+    else:
+        pipeline.load_models(CUSTOM_MODEL_DIR)
 
-PLATFORM_API_URL = os.environ.get("PLATFORM_API_URL", "http://11.12.6.240:8000")
+# The URL of the Next.js Frontend Dashboard to receive webhooks
+PLATFORM_API_URL = os.environ.get("NEXT_PUBLIC_PLATFORM_API_URL", "http://localhost:3000")
 INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "internal-dev-key")
 
 def push_threat_to_platform(threat_data: dict):
@@ -308,6 +317,74 @@ async def health():
     }
 
 
+# ─── Model Management Endpoints ──────────────────────
+def background_train_task(csv_path: str):
+    global is_training_custom_model
+    try:
+        from train import train
+        print(f"Starting background training with {csv_path}...")
+        train(custom_csv_path=csv_path, output_dir=CUSTOM_MODEL_DIR)
+        print("Background training completed successfully.")
+    except Exception as e:
+        print(f"Error during custom model training: {e}")
+    finally:
+        is_training_custom_model = False
+
+
+@app.post("/api/model/upload_and_train")
+async def upload_and_train(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    global is_training_custom_model
+    if is_training_custom_model:
+        raise HTTPException(status_code=400, detail="A model is already training.")
+    
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files are supported.")
+        
+    os.makedirs(CUSTOM_DATASET_DIR, exist_ok=True)
+    file_path = os.path.join(CUSTOM_DATASET_DIR, "custom_upload.csv")
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    is_training_custom_model = True
+    background_tasks.add_task(background_train_task, file_path)
+    return {"message": "File uploaded and training started in background."}
+
+
+class ModelSwitchRequest(BaseModel):
+    model_type: str  # "general" or "custom"
+
+
+@app.post("/api/model/switch")
+async def switch_model(req: ModelSwitchRequest):
+    global active_model_type, pipeline
+    new_type = req.model_type
+    if new_type not in ["general", "custom"]:
+        raise HTTPException(status_code=400, detail="Invalid model type. Must be 'general' or 'custom'.")
+        
+    if new_type == "custom":
+        if not os.path.exists(os.path.join(CUSTOM_MODEL_DIR, "xgboost_classifier.joblib")):
+            raise HTTPException(status_code=400, detail="Custom model not found. Please train one first.")
+        active_model_type = "custom"
+        pipeline.load_models(CUSTOM_MODEL_DIR)
+    else:
+        active_model_type = "general"
+        pipeline.load_models(MODEL_DIR)
+        
+    return {"message": f"Successfully switched to {active_model_type} model."}
+
+
+@app.get("/api/model/status")
+async def model_status():
+    global active_model_type, is_training_custom_model
+    has_custom = os.path.exists(os.path.join(CUSTOM_MODEL_DIR, "xgboost_classifier.joblib"))
+    return {
+        "active_model": active_model_type,
+        "is_training": is_training_custom_model,
+        "custom_model_available": has_custom
+    }
+
+
 @app.post("/predict", response_model=ThreatPredictionResponse)
 async def predict(request: ThreatPredictionRequest, background_tasks: BackgroundTasks):
     """
@@ -362,6 +439,28 @@ async def flood_target(request: Request, background_tasks: BackgroundTasks):
 
     # Always return 200 (the attacker thinks it's a real endpoint)
     return {"status": "ok"}
+
+
+@app.post("/api/telemetry/ingest", response_model=ThreatPredictionResponse)
+async def ingest_telemetry(request: ThreatPredictionRequest, background_tasks: BackgroundTasks):
+    """
+    Ingest raw telemetry data from an external source (e.g., an external firewall or agent).
+    Processes the exact same network flow features and runs ML inference.
+    """
+    # Run ML inference synchronously
+    result = pipeline.predict(
+        raw_features=request.features,
+        source_ip=request.source_ip,
+        target_system=request.target_system
+    )
+    
+    print(f"📡 INGESTED TELEMETRY from {request.source_ip} → {result['threat_type'].upper()} | {result['severity']}")
+    
+    # Forward the threat detection to the main Platform Backend API if it's not normal traffic
+    if result["threat_type"] != "Benign":
+        background_tasks.add_task(push_threat_to_platform, result)
+        
+    return result
 
 
 # ─── Playbook Endpoints ──────────────────────────────

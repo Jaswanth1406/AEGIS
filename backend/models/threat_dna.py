@@ -63,13 +63,16 @@ class ThreatDNA:
                 })
         return sorted(results, key=lambda x: x["similarity"], reverse=True)
 
-    def save(self):
-        path = os.path.join(MODEL_DIR, "threat_dna.joblib")
+    def save(self, output_dir: str = None):
+        if output_dir is None: output_dir = MODEL_DIR
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, "threat_dna.joblib")
         joblib.dump({"scaler": self.dna_scaler, "indices": self.dna_indices, "fingerprints": self.known_fingerprints}, path)
         print(f"  💾 Saved Threat DNA → {path}")
 
-    def load(self):
-        path = os.path.join(MODEL_DIR, "threat_dna.joblib")
+    def load(self, output_dir: str = None):
+        if output_dir is None: output_dir = MODEL_DIR
+        path = os.path.join(output_dir, "threat_dna.joblib")
         data = joblib.load(path)
         self.dna_scaler = data["scaler"]
         self.dna_indices = data["indices"]

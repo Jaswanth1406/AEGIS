@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { User, Mail, Shield, Bell, Moon, Sun, Save, CheckCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { User, Mail, Shield, Bell, Moon, Sun, Save, CheckCircle, Database, UploadCloud, Cpu } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { useTheme } from "next-themes";
 
@@ -32,6 +32,35 @@ export default function SettingsPage() {
 
   // Track if we made changes
   const [hasChanges, setHasChanges] = useState(false);
+
+  const [modelStatus, setModelStatus] = useState({
+    active_model: "general",
+    is_training: false,
+    custom_model_available: false,
+  });
+  const [uploadingDataset, setUploadingDataset] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Poll model status
+  useEffect(() => {
+    const fetchModelStatus = async () => {
+      try {
+        const apiUrl = "http://127.0.0.1:8000";
+        const res = await fetch(`${apiUrl}/api/model/status`);
+        if (res.ok) {
+          const data = await res.json();
+          setModelStatus(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch model status", err);
+      }
+    };
+
+    fetchModelStatus();
+    const interval = setInterval(fetchModelStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Sync session data when it loads
   useEffect(() => {
@@ -136,6 +165,63 @@ export default function SettingsPage() {
       setTestResult({ type: "slack", ok: false, message: err?.message || "Failed to send test Slack message." });
     } finally {
       setTestSlackSending(false);
+    }
+  };
+
+  const handleModelSwitch = async (type: "general" | "custom") => {
+    try {
+      const apiUrl = "http://127.0.0.1:8000";
+      const res = await fetch(`${apiUrl}/api/model/switch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model_type: type })
+      });
+      if (res.ok) {
+        setModelStatus(s => ({ ...s, active_model: type }));
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.detail}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to switch model.");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".csv")) {
+      setUploadMessage("Only CSV files are allowed.");
+      return;
+    }
+
+    setUploadingDataset(true);
+    setUploadMessage("");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const apiUrl = "http://127.0.0.1:8000";
+      const res = await fetch(`${apiUrl}/api/model/upload_and_train`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUploadMessage("Training started successfully! This may take a few minutes.");
+        setModelStatus(s => ({ ...s, is_training: true }));
+      } else {
+        setUploadMessage(`Error: ${data.detail || "Failed to start training."}`);
+      }
+    } catch (err) {
+      console.error(err);
+      setUploadMessage("Error uploading dataset.");
+    } finally {
+      setUploadingDataset(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -283,6 +369,81 @@ export default function SettingsPage() {
                 {testResult.message}
               </p>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Model & Data Ingestion */}
+      <div className="bg-surface rounded-xl border border-border p-6">
+        <h2 className="text-lg font-semibold text-text mb-4 flex items-center gap-2">
+          <Database className="h-5 w-5 text-accent-green" /> Model & Data Ingestion
+        </h2>
+        
+        <div className="space-y-6">
+          <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-surface2">
+            <div>
+              <h3 className="text-sm font-medium text-text flex items-center gap-2">
+                <Cpu className="h-4 w-4" /> Active Model
+              </h3>
+              <p className="text-xs text-muted mt-1">
+                Choose between the pre-trained general model or your custom trained model.
+              </p>
+            </div>
+            
+            <div className="flex bg-surface border border-border rounded-lg p-1 overflow-hidden">
+              <button 
+                onClick={() => handleModelSwitch("general")}
+                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${modelStatus.active_model === "general" ? "bg-accent-green text-white" : "text-muted hover:text-text"}`}
+              >
+                General
+              </button>
+              <button 
+                onClick={() => handleModelSwitch("custom")}
+                disabled={!modelStatus.custom_model_available && modelStatus.active_model !== "custom"}
+                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${modelStatus.active_model === "custom" ? "bg-accent-green text-white" : "text-muted hover:text-text"} disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                Custom Model
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <h3 className="text-sm font-medium text-text mb-2">Train Custom Model</h3>
+            <p className="text-xs text-muted mb-4">
+              Upload your own CSV dataset containing flow features and standard labels. The system will automatically train a new custom threat detection model.
+            </p>
+            
+            <div className="flex flex-col gap-3">
+              <input 
+                type="file" 
+                accept=".csv" 
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+              />
+              
+              {modelStatus.is_training ? (
+                <div className="flex items-center gap-3 p-4 border border-accent-blue/30 bg-accent-blue/10 rounded-xl text-accent-blue text-sm">
+                  <div className="h-4 w-4 rounded-full border-2 border-accent-blue border-t-transparent animate-spin" />
+                  Custom model is currently training in the background. Please wait...
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingDataset}
+                  className="flex items-center justify-center gap-2 w-full py-3 border border-dashed border-border hover:border-accent-green bg-surface2 hover:bg-surface rounded-xl transition-all text-sm text-text"
+                >
+                  <UploadCloud className="h-5 w-5 text-muted" />
+                  {uploadingDataset ? "Uploading..." : "Upload CSV & Train Model"}
+                </button>
+              )}
+              
+              {uploadMessage && (
+                <p className={`text-xs ${uploadMessage.includes("Error") ? "text-accent-red" : "text-accent-green"}`}>
+                  {uploadMessage}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

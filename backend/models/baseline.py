@@ -41,12 +41,15 @@ class AnomalyDetector:
         predictions = self.model.predict(X)
         return predictions == -1
 
-    def save(self):
-        path = os.path.join(MODEL_DIR, "isolation_forest.joblib")
+    def save(self, output_dir: str = None):
+        if output_dir is None: output_dir = MODEL_DIR
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, "isolation_forest.joblib")
         joblib.dump(self.model, path)
         print(f"  💾 Saved Isolation Forest → {path}")
 
-    def load(self):
-        path = os.path.join(MODEL_DIR, "isolation_forest.joblib")
+    def load(self, output_dir: str = None):
+        if output_dir is None: output_dir = MODEL_DIR
+        path = os.path.join(output_dir, "isolation_forest.joblib")
         self.model = joblib.load(path)
         print(f"  📂 Loaded Isolation Forest ← {path}")

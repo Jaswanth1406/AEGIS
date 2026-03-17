@@ -22,13 +22,14 @@ const generateIpCoordinates = (ip: string): [number, number] => {
 // Map backend target systems to fixed corporate locations
 const getTargetCoordinates = (target: string): [number, number] => {
   const map: Record<string, [number, number]> = {
+    "me": [77.2090, 28.6139], // New Delhi, India
     "public-ingress-01": [-77.0369, 38.9072], // Washington DC
     "db-primary": [-0.1276, 51.5074],         // London
     "auth-gateway": [13.4050, 52.5200],       // Berlin
     "internal-api": [139.6917, 35.6895],      // Tokyo
     "vpn-endpoint": [-122.4194, 37.7749],     // San Francisco
   };
-  return map[target] || [0, 0];
+  return map[target.toLowerCase()] || generateIpCoordinates(target);
 };
 
 // Severity config

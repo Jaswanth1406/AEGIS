@@ -15,40 +15,49 @@ import {
 
 const FRAMEWORKS = [
   {
-    id: "GDPR",
-    name: "GDPR",
-    full: "General Data Protection Regulation",
-    flag: "🇪🇺",
+    id: "DPDP 2023",
+    name: "DPDP 2023",
+    full: "Digital Personal Data Protection Act",
+    flag: "🇮🇳",
     color: "text-blue-400",
     bg: "bg-blue-400/10",
     border: "border-blue-400/30",
   },
   {
-    id: "ISO 27001",
-    name: "ISO 27001",
-    full: "Information Security Management",
-    flag: "🌐",
+    id: "CERT-In",
+    name: "CERT-In 2022",
+    full: "Cyber Security Directions",
+    flag: "🛡️",
     color: "text-accent-green",
     bg: "bg-accent-green/10",
     border: "border-accent-green/30",
   },
   {
-    id: "HIPAA",
-    name: "HIPAA",
-    full: "Health Insurance Portability & Accountability",
-    flag: "🏥",
+    id: "RBI",
+    name: "RBI Cyber",
+    full: "Cyber Security Framework for Banks",
+    flag: "🏦",
     color: "text-purple-400",
     bg: "bg-purple-400/10",
     border: "border-purple-400/30",
   },
   {
-    id: "SOC2",
-    name: "SOC 2",
-    full: "Service Organization Controls 2",
-    flag: "🔒",
+    id: "IT Act",
+    name: "IT Act 2000",
+    full: "Information Technology Act",
+    flag: "⚖️",
     color: "text-orange-400",
     bg: "bg-orange-400/10",
     border: "border-orange-400/30",
+  },
+  {
+    id: "MeitY",
+    name: "MeitY",
+    full: "National Cyber Security Policy",
+    flag: "🏛️",
+    color: "text-pink-400",
+    bg: "bg-pink-400/10",
+    border: "border-pink-400/30",
   },
 ];
 
@@ -82,7 +91,7 @@ interface ReportData {
 }
 
 export default function CompliancePage() {
-  const [selectedFramework, setSelectedFramework] = useState("GDPR");
+  const [selectedFramework, setSelectedFramework] = useState("DPDP 2023");
   const [dateRange, setDateRange] = useState("Last 30 days");
   const [orgName, setOrgName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -226,7 +235,7 @@ export default function CompliancePage() {
             Compliance Reports
           </h1>
           <p className="text-muted text-sm mt-1">
-            One-click audit-ready reports — GDPR, ISO 27001, HIPAA, SOC 2
+            One-click audit-ready reports — DPDP, CERT-In, RBI, IT Act, MeitY
           </p>
         </div>
         <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-green/10 border border-accent-green/30">
@@ -236,7 +245,7 @@ export default function CompliancePage() {
       </div>
 
       {/* Framework Selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {FRAMEWORKS.map((f) => (
           <button
             key={f.id}

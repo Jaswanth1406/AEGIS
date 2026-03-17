@@ -4,42 +4,44 @@ const PLATFORM_API_URL = process.env.NEXT_PUBLIC_PLATFORM_API_URL || "http://11.
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 
 const FRAMEWORK_PROMPTS: Record<string, string> = {
-  GDPR: `You are a senior cybersecurity compliance officer writing an official GDPR Article 32 security report. 
+  "DPDP 2023": `You are a senior cybersecurity compliance officer writing an official Digital Personal Data Protection (DPDP) Act 2023 security report. 
 Write a formal, audit-ready compliance report for the period provided. Focus on:
-- Technical and organisational measures taken
+- Reasonable security safeguards adopted to prevent personal data breaches (Section 8)
+- Data principal rights & consent management validation
 - Incident detection and response effectiveness  
-- Personal data protection status (no breaches)
-- Pseudonymisation and encryption evidence
-- Ongoing confidentiality, integrity, availability assurance
-Use formal language appropriate for EU data protection authorities and auditors.`,
+- Prevention of personal data breaches
+Use formal language appropriate for the Data Protection Board of India and local auditors.`,
 
-  "ISO 27001": `You are a certified ISO 27001 Lead Auditor writing a surveillance audit report.
-Write a formal ISO 27001 Annex A compliance report covering:
-- Information security incident management (Annex A.16)
-- Access control evidence (Annex A.9)
-- Operations security (Annex A.12)
-- Supplier relationships and monitoring (Annex A.15)
-- Threat detection and SIEM capability evidence
-Use ISO terminology and reference specific controls by Annex A clause numbers.`,
+  "CERT-In": `You are a cybersecurity auditor writing a compliance report based on the CERT-In Cyber Security Directions 2022.
+Write a formal CERT-In compliance report covering:
+- Synchronization of ICT system clocks with NIC/NPL (Direction 2)
+- Mandatory reporting of cyber incidents within 6 hours (Direction 3)
+- Log retention policy enforcement for 180 days (Direction 4)
+- Threat detection capabilities and evidence of security controls
+Use CERT-In terminology and reference the specific 2022 mandate clauses.`,
 
-  HIPAA: `You are a healthcare security specialist writing a HIPAA Security Rule compliance report.
-Write a formal HIPAA Technical Safeguards compliance report covering:
-- Access Controls (§164.312(a))
-- Audit Controls (§164.312(b))
-- Integrity Controls (§164.312(c))
-- Person Authentication (§164.312(d))
-- Transmission Security (§164.312(e))
-- Incident response and breach risk assessment
-Use HIPAA regulatory citations and language appropriate for healthcare OCR audits.`,
+  "RBI": `You are a banking security specialist writing a compliance report against the Reserve Bank of India (RBI) Cyber Security Framework in Banks.
+Write a formal RBI cyber compliance report covering:
+- Annex-1: Baseline Cyber Security and Resilience Requirements
+- Network Security, secure configuration, and vulnerability management
+- Incident Response and Management capabilities
+- Continuous surveillance and monitoring (SOC/SIEM integration)
+Use RBI regulatory citations and language appropriate for financial audits in India.`,
 
-  SOC2: `You are a SOC 2 auditor writing a Type II report narrative.
-Write a formal SOC 2 Trust Service Criteria compliance narrative covering:
-- CC6: Logical and Physical Access Controls
-- CC7: System Operations and Change Management  
-- CC9: Risk Mitigation
-- A1: Availability
-- Continuous monitoring evidence and incident response metrics
-Use AICPA Trust Service Criteria terminology appropriate for enterprise customers.`,
+  "IT Act": `You are a legal cybersecurity auditor writing a compliance narrative for the Information Technology Act, 2000 (and SPDI Rules 2011).
+Write a formal IT Act compliance narrative covering:
+- Section 43A: Implementation of reasonable security practices and procedures
+- Section 72A: Protection against disclosure of information in breach of lawful contract
+- Evidence of active network monitoring and data protection controls
+Use Indian legislative terminology appropriate for enterprise and government customers in India.`,
+
+  "MeitY": `You are an enterprise security auditor assessing alignment with the Ministry of Electronics and Information Technology (MeitY) National Cyber Security Policy.
+Write a formal MeitY compliance narrative covering:
+- Protection of critical information infrastructure
+- Proactive threat hunting, continuous monitoring, and incident response metrics
+- Implementation of global best practices and standards within the Indian context
+- Resilience and rapid recovery capabilities
+Use MeitY guidelines terminology appropriate for national infrastructure audits.`
 };
 
 export async function POST(req: NextRequest) {
@@ -98,7 +100,7 @@ SECURITY METRICS FOR REPORT PERIOD (${dateRange}):
 `;
 
     // 3. Call Groq API
-    const systemPrompt = FRAMEWORK_PROMPTS[framework] || FRAMEWORK_PROMPTS["GDPR"];
+    const systemPrompt = FRAMEWORK_PROMPTS[framework] || FRAMEWORK_PROMPTS["DPDP 2023"];
 
     const grokRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",

@@ -52,12 +52,15 @@ class ThreatClassifier:
             })
         return results
 
-    def save(self):
-        path = os.path.join(MODEL_DIR, "xgboost_classifier.joblib")
+    def save(self, output_dir: str = None):
+        if output_dir is None: output_dir = MODEL_DIR
+        os.makedirs(output_dir, exist_ok=True)
+        path = os.path.join(output_dir, "xgboost_classifier.joblib")
         joblib.dump(self.model, path)
         print(f"  💾 Saved XGBoost → {path}")
 
-    def load(self):
-        path = os.path.join(MODEL_DIR, "xgboost_classifier.joblib")
+    def load(self, output_dir: str = None):
+        if output_dir is None: output_dir = MODEL_DIR
+        path = os.path.join(output_dir, "xgboost_classifier.joblib")
         self.model = joblib.load(path)
         print(f"  📂 Loaded XGBoost ← {path}")

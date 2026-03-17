@@ -51,6 +51,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aegis.ui.theme.LocalCyberColors
+import com.example.aegis.ui.components.LottieAnimationBox
+import com.example.aegis.R
 
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -245,7 +247,7 @@ fun AnimatedLogoArea() {
                 .background(cyber.neonGreen.copy(alpha = 0.2f))
                 .border(1.dp, cyber.neonGreen.copy(alpha = 0.4f), CircleShape)
         )
-        // Inner solid circle
+        // Inner solid circle with Lottie welcome animation
         Box(
             modifier = Modifier
                 .size(100.dp)
@@ -258,11 +260,9 @@ fun AnimatedLogoArea() {
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Filled.Security,
-                contentDescription = "Shield Logo",
-                tint = Color.White,
-                modifier = Modifier.size(48.dp)
+            LottieAnimationBox(
+                animationResId = R.raw.lottie_welcome,
+                size = 80.dp
             )
         }
     }

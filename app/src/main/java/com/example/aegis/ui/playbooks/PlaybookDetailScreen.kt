@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +28,9 @@ import com.example.aegis.data.api.ApiClient
 import com.example.aegis.data.models.Playbook
 import com.example.aegis.data.models.PlaybookExecuteRequest
 import com.example.aegis.data.models.PlaybookStep
+import com.example.aegis.ui.components.LottieAnimationBox
 import com.example.aegis.ui.theme.*
+import com.example.aegis.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -48,7 +51,8 @@ val ACTION_REGISTRY = listOf(
     ActionInfo("force_user_logout", "Force Logout", "IAM", Icons.Default.ExitToApp, Color(0xFFFFAB00), mapOf("identifier" to "User / IP")),
     ActionInfo("lock_active_directory_account", "Lock AD Account", "IAM", Icons.Default.Lock, Color(0xFFFF5252), mapOf("username" to "Username")),
     ActionInfo("update_threat_status", "Update Status", "Platform", Icons.Default.Sync, Color(0xFF00B0FF), mapOf("status" to "New Status")),
-    ActionInfo("escalate_to_tier2", "Escalate to Tier 2", "Platform", Icons.Default.ArrowUpward, Color(0xFFD500F9), mapOf("threat_id" to "Threat ID"))
+    ActionInfo("escalate_to_tier2", "Escalate to Tier 2", "Platform", Icons.Default.ArrowUpward, Color(0xFFD500F9), mapOf("threat_id" to "Threat ID")),
+    ActionInfo("deploy_honeytoken", "Deploy Honeytoken", "Deception", Icons.Default.BugReport, Color(0xFFFF9100), mapOf("name" to "Token Name", "token_type" to "Token Type", "token_value" to "Token Value", "deployed_location" to "Location"))
 )
 
 fun getActionInfo(key: String): ActionInfo? = ACTION_REGISTRY.find { it.key == key }
@@ -66,6 +70,7 @@ fun PlaybookDetailScreen(
     var isLoading by remember { mutableStateOf(true) }
     var executing by remember { mutableStateOf(false) }
     var showExecuteDialog by remember { mutableStateOf(false) }
+    var showSuccess by remember { mutableStateOf(false) }
     var contentVisible by remember { mutableStateOf(false) }
     var threats by remember { mutableStateOf<List<com.example.aegis.data.models.ThreatItem>>(emptyList()) }
     var threatsLoading by remember { mutableStateOf(false) }
@@ -128,8 +133,9 @@ fun PlaybookDetailScreen(
                                             scope.launch {
                                                 try {
                                                     val resp = ApiClient.getInstance().executePlaybook(playbookId, PlaybookExecuteRequest(t.id))
-                                                    if (resp.isSuccessful) {
+                                                if (resp.isSuccessful) {
                                                         Toast.makeText(context, "✅ Executed against Threat #${t.id}!", Toast.LENGTH_LONG).show()
+                                                        showSuccess = true
                                                     } else {
                                                         Toast.makeText(context, "Failed: ${resp.code()}", Toast.LENGTH_SHORT).show()
                                                     }
@@ -173,9 +179,27 @@ fun PlaybookDetailScreen(
                     if (executing) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = cyber.neonCyan, strokeWidth = 2.dp)
+                            LottieAnimationBox(
+                                animationResId = R.raw.lottie_processing,
+                                size = 24.dp
+                            )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Executing playbook...", fontSize = 12.sp, color = cyber.neonCyan)
+                        }
+                    }
+                    if (showSuccess) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            LottieAnimationBox(
+                                animationResId = R.raw.lottie_success,
+                                size = 100.dp,
+                                iterations = 1
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Playbook executed successfully!", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF00FF88))
                         }
                     }
                 }

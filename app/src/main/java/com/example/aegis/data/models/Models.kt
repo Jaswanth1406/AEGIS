@@ -30,9 +30,7 @@ data class ThreatItem(
     @SerializedName("anomaly_score") val anomalyScore: Double?,
     val status: String?,
     @SerializedName("created_at") val createdAt: String?,
-    val explanation: Map<String, Any>?,
-    @SerializedName("ai_summary") val aiSummary: String? = null,
-    @SerializedName("ai_suggested_playbook") val aiSuggestedPlaybook: String? = null
+    val explanation: Map<String, Any>?
 )
 
 data class ThreatListResponse(
@@ -90,30 +88,6 @@ data class PlaybookLog(
     @SerializedName("step_results") val stepResults: List<StepResult>? = null
 )
 
-data class Honeytoken(
-    val id: Int,
-    val name: String,
-    @SerializedName("token_type") val tokenType: String,
-    @SerializedName("token_value") val tokenValue: String?,
-    @SerializedName("deployed_location") val deployedLocation: String,
-    val status: String,
-    @SerializedName("triggered_at") val triggeredAt: String? = null,
-    @SerializedName("created_at") val createdAt: String? = null
-)
-
-data class HoneytokenCreateRequest(
-    val name: String,
-    @SerializedName("token_type") val tokenType: String,
-    @SerializedName("token_value") val tokenValue: String? = null,
-    @SerializedName("deployed_location") val deployedLocation: String
-)
-
-data class HoneytokenValidateRequest(
-    @SerializedName("token_value") val tokenValue: String,
-    @SerializedName("source_ip") val sourceIp: String,
-    val context: Map<String, String>? = null
-)
-
 data class SettingsData(
     @SerializedName("alert_thresholds") val alertThresholds: AlertThresholds?,
     @SerializedName("notification_preferences") val notificationPreferences: NotificationPreferences?,
@@ -123,3 +97,26 @@ data class SettingsData(
 data class AlertThresholds(val critical: Double?, val high: Double?, val medium: Double?)
 data class NotificationPreferences(val email: Boolean?, val slack: Boolean?)
 
+data class Honeytoken(
+    val id: Int,
+    val name: String,
+    @SerializedName("token_type") val tokenType: String,
+    @SerializedName("token_value") val tokenValue: String,
+    @SerializedName("deployed_location") val deployedLocation: String,
+    val status: String,
+    @SerializedName("triggered_at") val triggeredAt: String?,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+data class HoneytokenCreateRequest(
+    val name: String,
+    @SerializedName("token_type") val tokenType: String,
+    @SerializedName("token_value") val tokenValue: String,
+    @SerializedName("deployed_location") val deployedLocation: String
+)
+
+data class HoneytokenValidateRequest(
+    @SerializedName("token_value") val tokenValue: String,
+    @SerializedName("source_ip") val sourceIp: String,
+    val context: Map<String, Any>
+)

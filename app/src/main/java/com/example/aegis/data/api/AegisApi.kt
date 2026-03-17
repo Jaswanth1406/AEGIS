@@ -69,8 +69,8 @@ interface AegisApi {
     suspend fun createHoneytoken(@Body body: HoneytokenCreateRequest): Response<Honeytoken>
 
     @DELETE("api/honeytokens/{id}")
-    suspend fun deactivateHoneytoken(@Path("id") id: Int): Response<Honeytoken>
+    suspend fun deactivateHoneytoken(@Path("id") id: Int): Response<Unit>
 
     @POST("api/honeytokens/validate")
-    suspend fun validateHoneytoken(@Body body: HoneytokenValidateRequest): Response<Honeytoken>
+    suspend fun validateHoneytoken(@Body body: HoneytokenValidateRequest): Response<Unit>
 }

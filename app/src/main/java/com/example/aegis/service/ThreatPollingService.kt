@@ -30,6 +30,7 @@ class ThreatPollingService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        AlertManager.init(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -63,6 +64,13 @@ class ThreatPollingService : Service() {
                             newThreats.forEach { threat ->
                                 seenThreatIds.add(threat.id)
                                 sendThreatNotification(threat.id, threat.threatType, threat.severity, threat.sourceIp)
+                                // Concise voice alert + heavy vibration (runs in background)
+                                AlertManager.speakThreatSummary(
+                                    threatType = threat.threatType,
+                                    severity = threat.severity,
+                                    targetSystem = threat.targetSystem
+                                )
+                                AlertManager.vibrate(this@ThreatPollingService, threat.severity)
                             }
                         }
                     }
@@ -126,6 +134,7 @@ class ThreatPollingService : Service() {
 
     override fun onDestroy() {
         serviceScope.cancel()
+        AlertManager.shutdown()
         super.onDestroy()
     }
 }

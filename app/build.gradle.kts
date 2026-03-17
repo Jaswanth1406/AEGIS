@@ -20,7 +20,7 @@ android {
         }
 
         // ── Change the backend URL here ──
-        buildConfigField("String", "BASE_URL", "\"http://11.12.6.240:8000/\"")
+        buildConfigField("String", "BASE_URL", "\"http://10.251.3.213:8000/\"")
     }
 
     buildTypes {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -113,14 +114,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Bottom Nav Items — 4 tabs now
+// Bottom Nav Items — 5 tabs now
 data class BottomNavItem(val route: String, val label: String, val icon: ImageVector, val index: Int)
 
 val bottomNavItems = listOf(
     BottomNavItem("main_dashboard", "Dashboard", Icons.Default.Dashboard, 0),
     BottomNavItem("main_threats", "Threats", Icons.Default.Security, 1),
     BottomNavItem("main_playbooks", "Playbooks", Icons.Default.AutoFixHigh, 2),
-    BottomNavItem("main_settings", "Settings", Icons.Default.Settings, 3),
+    BottomNavItem("main_honeytokens", "Decoys", Icons.Default.BugReport, 3),
+    BottomNavItem("main_settings", "Settings", Icons.Default.Settings, 4),
 )
 
 @Composable
@@ -274,6 +276,25 @@ fun AegisApp(isDarkTheme: Boolean, onToggleTheme: () -> Unit, deepLinkThreatId: 
                     onPlaybookClick = { id -> navController.navigate("playbook_detail/$id") },
                     onCreateClick = { navController.navigate("playbook_builder") }
                 )
+            }
+
+            // ── Honeytokens Tab ──
+            composable(
+                "main_honeytokens",
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { if (currentTabIndex > previousTabIndex) it else -it },
+                        animationSpec = tween(350)
+                    ) + fadeIn(animationSpec = tween(350))
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { if (currentTabIndex > previousTabIndex) -it else it },
+                        animationSpec = tween(350)
+                    ) + fadeOut(animationSpec = tween(350))
+                }
+            ) {
+                com.example.aegis.ui.honeytokens.HoneytokensScreen()
             }
 
             // ── Settings Tab ──

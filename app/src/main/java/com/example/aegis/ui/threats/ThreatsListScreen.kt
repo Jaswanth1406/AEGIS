@@ -24,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aegis.data.api.ApiClient
 import com.example.aegis.data.models.ThreatItem
+import com.example.aegis.ui.components.LottieAnimationBox
 import com.example.aegis.ui.theme.*
+import com.example.aegis.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,13 +134,23 @@ fun ThreatsListScreen(onThreatClick: (Int) -> Unit) {
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = cyber.neonCyan)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    LottieAnimationBox(
+                        animationResId = R.raw.lottie_radar_scanning,
+                        size = 120.dp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Scanning for threats...", color = cyber.neonCyan, fontSize = 14.sp)
+                }
             }
         } else if (threats.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Shield, null, tint = cyber.textSecondary, modifier = Modifier.size(64.dp))
-                    Spacer(modifier = Modifier.height(16.dp))
+                    LottieAnimationBox(
+                        animationResId = R.raw.lottie_shield_safe,
+                        size = 140.dp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text("No threats detected", color = cyber.textSecondary, fontSize = 16.sp)
                     Text("System secured", color = cyber.neonGreen, fontSize = 14.sp)
                 }

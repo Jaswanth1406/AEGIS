@@ -31,7 +31,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.aegis.data.api.ApiClient
 import com.example.aegis.data.models.DashboardStats
+import com.example.aegis.ui.components.LottieAnimationBox
 import com.example.aegis.ui.theme.*
+import com.example.aegis.R
 import kotlinx.coroutines.delay
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -188,7 +190,10 @@ fun DashboardScreen(onNavigateToThreat: ((Int) -> Unit)? = null) {
         // Stats Grid
         if (isLoading) {
             Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = cyber.neonCyan)
+                LottieAnimationBox(
+                    animationResId = R.raw.lottie_radar_scanning,
+                    size = 80.dp
+                )
             }
         } else {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
